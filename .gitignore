@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+config.local.json
+tests/samples/*
+!tests/samples/.gitkeep
