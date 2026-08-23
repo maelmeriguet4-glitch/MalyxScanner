@@ -2,6 +2,6 @@ customtkinter>=5.2.2
 puremagic>=1.28
 pefile>=2024.8.26
 requests>=2.32.3
-yara-python>=4.5.1
 tkinterdnd2>=0.4.2
 pyinstaller>=6.10.0
+yara-python>=4.5.0; python_version <= "3.11"

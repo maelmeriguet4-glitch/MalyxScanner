@@ -50,10 +50,12 @@
 git clone https://github.com/maelmeriguet4-glitch/MalyxScanner.git
 cd MalyxScanner
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 python src/main.py
 ```
+
+> **Note YARA (Optionnel)** : Le moteur YARA s'installe automatiquement sur Python 3.11 (`yara-python`). Sur Python 3.12+, si Visual C++ n'est pas installé sur votre machine, MalyxScanner démarre et fonctionne parfaitement avec tous ses autres moteurs d'analyse heuristique.
 
 ### Lancer les tests unitaires
 ```powershell
