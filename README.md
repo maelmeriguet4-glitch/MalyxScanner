@@ -47,8 +47,8 @@
 
 ### Cloner et lancer
 ```powershell
-git clone https://github.com/votre-compte/malyxscanner.git
-cd malyxscanner
+git clone https://github.com/maelmeriguet4-glitch/MalyxScanner.git
+cd MalyxScanner
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
