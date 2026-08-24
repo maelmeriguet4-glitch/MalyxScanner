@@ -285,9 +285,29 @@ class SettingsDialog(ctk.CTkToplevel):
         ai_cfg = cfg.get("ai_analyst", {})
         self.ai_enable_var = ctk.BooleanVar(value=bool(ai_cfg.get("enabled", False)))
 
+        # Beta notice banner
+        beta_banner = ctk.CTkFrame(frame, fg_color="#1c1917", corner_radius=6, border_width=1, border_color="#d97706")
+        beta_banner.pack(fill="x", padx=10, pady=(10, 4))
+        b_inner = ctk.CTkFrame(beta_banner, fg_color="transparent")
+        b_inner.pack(fill="x", padx=12, pady=8)
+        ctk.CTkLabel(
+            b_inner,
+            text="🚧 Module Analyste IA — En cours d'optimisation (Bêta)",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f59e0b",
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            b_inner,
+            text="Cette fonctionnalité avancée sera finalisée et activée pour tous dans la prochaine release.",
+            font=ctk.CTkFont(size=11),
+            text_color="#a8a29e",
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 0))
+
         # Header card
         header_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=6, border_width=1, border_color=theme["border"])
-        header_card.pack(fill="x", padx=10, pady=(10, 10))
+        header_card.pack(fill="x", padx=10, pady=(6, 10))
 
         h_inner = ctk.CTkFrame(header_card, fg_color="transparent")
         h_inner.pack(fill="x", padx=12, pady=10)

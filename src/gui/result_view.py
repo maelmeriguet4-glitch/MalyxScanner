@@ -341,21 +341,26 @@ class ResultView(ctk.CTkFrame):
             ).pack(anchor="w", padx=6, pady=4)
 
         else:
-            # Prompt to generate or configure
+            # Under Construction / Coming Soon banner
             info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#30363d")
             info_box.pack(fill="x", padx=4, pady=(0, 10))
 
             i_inner = ctk.CTkFrame(info_box, fg_color="transparent")
-            i_inner.pack(fill="x", padx=16, pady=14)
+            i_inner.pack(fill="x", padx=16, pady=16)
 
             ctk.CTkLabel(
                 i_inner,
-                text="🤖 " + (t.t("ai.not_configured_title") if not (ai_enabled and ai_key) else "Générer l'Analyse d'Expertise IA"),
+                text="🚧 Analyste IA en cours de construction & optimisation",
                 font=ctk.CTkFont(size=15, weight="bold"),
-                text_color="#f0f6fc",
+                text_color="#e3b341",
             ).pack(anchor="w")
 
-            desc_text = t.t("ai.not_configured_desc") if not (ai_enabled and ai_key) else "Cliquez ci-dessous pour interroger l'Analyste IA qui va analyser l'ensemble des APIs Windows, commandes et hachages extraits pour générer une explication détaillée et vivante des capacités réelles de ce fichier."
+            desc_text = (
+                "L'intégration complète du Moteur d'Analyste Cybersécurité IA (OpenRouter, Google Gemini, OpenAI, Anthropic Claude) "
+                "est actuellement en cours de calibrage et d'optimisation finale. Cette fonctionnalité sera pleinement disponible dans la prochaine mise à jour !\n\n"
+                "Tous les autres moteurs d'analyse locale (Inspection de signatures, Règles YARA, Structure PE, Entropie par blocs, "
+                "Extraction de commandes et IOCs, Détection de Rançongiciels et Réputation VirusTotal) sont 100% opérationnels et actifs."
+            )
             ctk.CTkLabel(
                 i_inner,
                 text=desc_text,
@@ -363,28 +368,16 @@ class ResultView(ctk.CTkFrame):
                 text_color="#8b949e",
                 wraplength=700,
                 justify="left",
-            ).pack(anchor="w", pady=(6, 12))
+            ).pack(anchor="w", pady=(8, 12))
 
-            if ai_enabled and ai_key:
-                self.gen_btn = ctk.CTkButton(
-                    i_inner,
-                    text="✨ " + t.t("ai.generate_btn"),
-                    height=36,
-                    font=ctk.CTkFont(size=13, weight="bold"),
-                    fg_color="#1f6feb",
-                    hover_color="#1158c7",
-                    command=lambda: self._generate_ai(tab, t, result, ai_cfg),
-                )
-                self.gen_btn.pack(anchor="w")
-            else:
-                ctk.CTkLabel(
-                    i_inner,
-                    text="💡 Rendez-vous dans ⚙ Réglages ➔ Onglet 🤖 Analyste IA pour saisir votre clé API (OpenRouter, Google Gemini, OpenAI ou Anthropic).",
-                    font=ctk.CTkFont(size=12, weight="bold"),
-                    text_color="#e3b341",
-                    wraplength=700,
-                    justify="left",
-                ).pack(anchor="w", pady=(0, 8))
+            ctk.CTkLabel(
+                i_inner,
+                text="⚡ Prochaine version : Explications personnalisées sur-mesure des capacités techniques de chaque binaire.",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="#58a6ff",
+                wraplength=700,
+                justify="left",
+            ).pack(anchor="w")
 
     def _generate_ai(self, tab, t, result, ai_cfg):
         if self.ai_loading:
