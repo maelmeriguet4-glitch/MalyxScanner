@@ -203,11 +203,13 @@ def build_user_payload(result, lang="fr"):
 
 def query_ai_analyst(result, ai_config, lang="fr"):
     provider = ai_config.get("provider", "openrouter").lower()
-    api_key = ai_config.get("api_key", "").strip()
-    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "openrouter/free")
+    raw_api_key = ai_config.get("api_key", "")
+    # Strict ASCII sanitization: remove bullets, smart quotes, zero-width spaces, and control characters
+    api_key = "".join(c for c in str(raw_api_key).strip().strip("'\"“”‘’") if 32 < ord(c) < 127)
+    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "stealth/ox-alpha")
 
     if not api_key:
-        raise ValueError("Clé API manquante pour l'analyste IA. Saisissez votre clé dans les Réglages ⚙.")
+        raise ValueError("Clé API manquante ou invalide. Saisissez votre véritable clé API dans les Réglages ⚙ (ex: sk-or-v1-...).")
 
     system_prompt = build_system_prompt(lang)
     user_prompt = build_user_payload(result, lang)

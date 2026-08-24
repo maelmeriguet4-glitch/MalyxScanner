@@ -362,9 +362,30 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # API Key
         ctk.CTkLabel(frame, text=t.t("settings.ai_api_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
-        self.ai_key_entry = ctk.CTkEntry(frame, show="•", fg_color=theme["subcard"], border_color=theme["border"])
+        ai_k_row = ctk.CTkFrame(frame, fg_color="transparent")
+        ai_k_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        self.ai_key_entry = ctk.CTkEntry(ai_k_row, show="•", fg_color=theme["subcard"], border_color=theme["border"])
         self.ai_key_entry.insert(0, ai_cfg.get("api_key", ""))
-        self.ai_key_entry.pack(fill="x", padx=10, pady=(0, 8))
+        self.ai_key_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self._ai_key_visible = False
+        def _toggle_ai_key():
+            self._ai_key_visible = not self._ai_key_visible
+            self.ai_key_entry.configure(show="" if self._ai_key_visible else "•")
+            self.ai_eye_btn.configure(text="🔒" if self._ai_key_visible else "👁️")
+
+        self.ai_eye_btn = ctk.CTkButton(
+            ai_k_row,
+            text="👁️",
+            width=40,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            command=_toggle_ai_key,
+        )
+        self.ai_eye_btn.pack(side="right")
 
         # Get API key button
         self.ai_link_btn = ctk.CTkButton(
@@ -452,10 +473,31 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # API Key
         ctk.CTkLabel(frame, text=t.t("settings.vt_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(8, 4))
-        self.key_entry = ctk.CTkEntry(frame, show="•", fg_color=theme["subcard"], border_color=theme["border"])
+        vt_k_row = ctk.CTkFrame(frame, fg_color="transparent")
+        vt_k_row.pack(fill="x", padx=10, pady=(0, 8))
+
+        self.key_entry = ctk.CTkEntry(vt_k_row, show="•", fg_color=theme["subcard"], border_color=theme["border"])
         key = vt_cfg.get("api_key", "")
         self.key_entry.insert(0, key)
-        self.key_entry.pack(fill="x", padx=10, pady=(0, 8))
+        self.key_entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+
+        self._vt_key_visible = False
+        def _toggle_vt_key():
+            self._vt_key_visible = not self._vt_key_visible
+            self.key_entry.configure(show="" if self._vt_key_visible else "•")
+            self.vt_eye_btn.configure(text="🔒" if self._vt_key_visible else "👁️")
+
+        self.vt_eye_btn = ctk.CTkButton(
+            vt_k_row,
+            text="👁️",
+            width=40,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            command=_toggle_vt_key,
+        )
+        self.vt_eye_btn.pack(side="right")
 
         # Join link button
         ctk.CTkButton(
@@ -534,8 +576,10 @@ class SettingsDialog(ctk.CTkToplevel):
             command=lambda: webbrowser.open(f"mailto:{email_str}?subject=[MalyxScanner]%20Feedback%20/%20Rapport%20de%20Bug"),
         ).pack(fill="x", pady=(2, 6))
 
-        # License & Project info
-        info_text = f"🛡️ MalyxScanner v2.0 — {t.t('settings.vibe_desc')}\nCréé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces."
+        # License & Project info card
+        info_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=8, border_width=1, border_color=theme["border"])
+        info_card.pack(fill="x", padx=10, pady=(0, 10))
+        info_text = f"🛡️ MalyxScanner v2.1 — {t.t('settings.vibe_desc')}\nCréé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces."
         ctk.CTkLabel(
             info_card,
             text=info_text,
@@ -598,13 +642,15 @@ class SettingsDialog(ctk.CTkToplevel):
         idx_p = self.provider_labels.index(self.provider_menu.get()) if self.provider_menu.get() in self.provider_labels else 0
         ai_cfg["provider"] = self.provider_keys[idx_p]
         ai_cfg["model"] = self.ai_model_entry.get().strip()
-        ai_cfg["api_key"] = self.ai_key_entry.get().strip()
+        raw_ai_k = self.ai_key_entry.get().strip()
+        ai_cfg["api_key"] = "".join(c for c in raw_ai_k if 32 < ord(c) < 127)
         ai_cfg["auto_analyze"] = bool(self.ai_auto_var.get())
 
         # VirusTotal
         vt = self.config_data.setdefault("virustotal", {})
         vt["enabled"] = bool(self.vt_switch_var.get())
-        vt["api_key"] = self.key_entry.get().strip()
+        raw_vt_k = self.key_entry.get().strip()
+        vt["api_key"] = "".join(c for c in raw_vt_k if 32 < ord(c) < 127)
 
         if self.on_saved:
             self.on_saved(self.config_data)
