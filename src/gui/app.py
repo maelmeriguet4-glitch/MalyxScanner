@@ -24,9 +24,13 @@ class MalyxApp:
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
 
         root.title(self.t.t("app.title") + " — Détection locale & privée")
-        root.geometry("1060x780")
-        root.minsize(920, 680)
+        root.geometry("1280x860")
+        root.minsize(1024, 720)
         root.configure(fg_color=self.theme["bg"])
+        try:
+            root.after(10, lambda: root.state("zoomed"))
+        except Exception:
+            pass
 
         self._build_header()
         self._build_dropzone()
@@ -45,7 +49,7 @@ class MalyxApp:
         header.pack(fill="x")
 
         title_box = ctk.CTkFrame(header, fg_color="transparent")
-        title_box.pack(side="left", padx=20, pady=12)
+        title_box.pack(side="left", padx=20, pady=10)
 
         ctk.CTkLabel(
             title_box,
@@ -56,18 +60,60 @@ class MalyxApp:
 
         ctk.CTkLabel(title_box, text=self.t.t("app.subtitle"), font=ctk.CTkFont(size=12), text_color=theme["subtext"]).pack(anchor="w")
 
+        # Top Action Toolbar (Quick 1-Click Access Everywhere)
+        toolbar = ctk.CTkFrame(header, fg_color="transparent")
+        toolbar.pack(side="right", padx=16, pady=10)
+
+        self.hdr_scan_btn = ctk.CTkButton(
+            toolbar,
+            text="📁 " + self.t.t("app.browse"),
+            width=150,
+            height=36,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=theme["accent"],
+            hover_color=theme["accent_hover"],
+            command=self.pick_file,
+        )
+        self.hdr_scan_btn.pack(side="left", padx=5)
+
+        self.hdr_export_txt_btn = ctk.CTkButton(
+            toolbar,
+            text="📄 " + self.t.t("misc.export_txt"),
+            width=110,
+            height=36,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            state="disabled",
+            command=lambda: self.export_report("txt"),
+        )
+        self.hdr_export_txt_btn.pack(side="left", padx=4)
+
+        self.hdr_export_json_btn = ctk.CTkButton(
+            toolbar,
+            text="💾 " + self.t.t("misc.export_json"),
+            width=110,
+            height=36,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            state="disabled",
+            command=lambda: self.export_report("json"),
+        )
+        self.hdr_export_json_btn.pack(side="left", padx=4)
+
         settings_btn = ctk.CTkButton(
-            header,
+            toolbar,
             text="⚙ " + self.t.t("app.settings"),
             width=120,
-            height=32,
-            font=ctk.CTkFont(size=12),
+            height=36,
+            font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#21262d",
             hover_color="#30363d",
             text_color=theme["text"],
             command=self.open_settings,
         )
-        settings_btn.pack(side="right", padx=20)
+        settings_btn.pack(side="left", padx=5)
 
     def _build_dropzone(self):
         theme = self.theme
@@ -79,15 +125,15 @@ class MalyxApp:
             border_color=theme["accent"],
             fg_color=theme["card"],
         )
-        self.dropzone.pack(fill="x", padx=16, pady=(12, 6))
+        self.dropzone.pack(fill="x", padx=16, pady=(10, 4))
 
         inner = ctk.CTkFrame(self.dropzone, fg_color="transparent")
         inner.place(relx=0.5, rely=0.5, anchor="center")
 
         ctk.CTkLabel(
             inner,
-            text=self.t.t("app.drop_title"),
-            font=ctk.CTkFont(size=15, weight="bold"),
+            text="🎯 " + self.t.t("app.drop_title"),
+            font=ctk.CTkFont(size=16, weight="bold"),
             text_color=theme["text"],
         ).pack(side="left", padx=12)
 
@@ -96,8 +142,8 @@ class MalyxApp:
         ctk.CTkButton(
             inner,
             text="📁 " + self.t.t("app.browse"),
-            width=140,
-            height=32,
+            width=160,
+            height=36,
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=theme["accent"],
             hover_color=theme["accent_hover"],
@@ -112,7 +158,7 @@ class MalyxApp:
         self.status_label = ctk.CTkLabel(status_bar, text="", font=ctk.CTkFont(size=12), anchor="w", text_color=theme["subtext"])
         self.status_label.pack(side="left")
 
-        self.progress = ctk.CTkProgressBar(status_bar, width=180, mode="indeterminate", progress_color=theme["accent"], fg_color=theme["subcard"])
+        self.progress = ctk.CTkProgressBar(status_bar, width=220, mode="indeterminate", progress_color=theme["accent"], fg_color=theme["subcard"])
 
     def _build_footer(self):
         theme = self.theme
@@ -258,23 +304,46 @@ class MalyxApp:
             self.reanalyze_btn.configure(state="normal")
             self.export_txt_btn.configure(state="normal")
             self.export_json_btn.configure(state="normal")
+            self.hdr_export_txt_btn.configure(state="normal")
+            self.hdr_export_json_btn.configure(state="normal")
+            self.hdr_scan_btn.configure(text="🔄 " + self.t.t("app.browse"))
             self.root.after(100, self._poll_queue)
 
     def _show_waiting(self):
         theme = self.theme
         for child in self.content.winfo_children():
             child.destroy()
-        box = ctk.CTkFrame(self.content, fg_color=theme["card"], corner_radius=12, border_width=1, border_color=theme["border"])
+        box = ctk.CTkFrame(self.content, fg_color=theme["card"], corner_radius=14, border_width=1, border_color=theme["border"])
         box.place(relx=0.5, rely=0.45, anchor="center")
-        ctk.CTkLabel(box, text="🛡️", font=ctk.CTkFont(size=56)).pack(padx=40, pady=(24, 6))
-        ctk.CTkLabel(box, text=self.t.t("app.waiting"), font=ctk.CTkFont(size=16, weight="bold"), text_color=theme["text"]).pack(padx=40, pady=(0, 4))
-        ctk.CTkLabel(box, text="Déposez un fichier ou cliquez sur Parcourir pour lancer une analyse statique 100% locale", font=ctk.CTkFont(size=12), text_color=theme["subtext"]).pack(padx=40, pady=(0, 24))
+        ctk.CTkLabel(box, text="🛡️", font=ctk.CTkFont(size=64)).pack(padx=50, pady=(28, 8))
+        ctk.CTkLabel(box, text=self.t.t("app.waiting"), font=ctk.CTkFont(size=18, weight="bold"), text_color=theme["text"]).pack(padx=50, pady=(0, 6))
+        ctk.CTkLabel(
+            box,
+            text="Glissez-déposez un fichier ou cliquez sur le bouton ci-dessous pour analyser.",
+            font=ctk.CTkFont(size=13),
+            text_color=theme["subtext"],
+        ).pack(padx=50, pady=(0, 16))
+
+        ctk.CTkButton(
+            box,
+            text="📁 " + self.t.t("app.browse"),
+            width=200,
+            height=40,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=theme["accent"],
+            hover_color=theme["accent_hover"],
+            command=self.pick_file,
+        ).pack(padx=50, pady=(0, 28))
 
     def _show_result(self, result):
         for child in self.content.winfo_children():
             child.destroy()
         self.current_view = ResultView(master=self.content, result=result, translator=self.t, config=self.config)
         self.current_view.pack(fill="both", expand=True)
+
+        self.hdr_export_txt_btn.configure(state="normal")
+        self.hdr_export_json_btn.configure(state="normal")
+        self.hdr_scan_btn.configure(text="🔄 Nouveau scan")
 
         verdict = result["risk"]["verdict"]
         colors = {"clean": "#3fb950", "suspicious": "#e3b341", "malicious": "#f85149"}

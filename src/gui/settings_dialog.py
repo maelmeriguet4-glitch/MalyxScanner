@@ -19,10 +19,11 @@ AI_PROVIDERS = [
 
 AI_MODEL_SUGGESTIONS = {
     "openrouter": [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "qwen/qwen-2.5-coder-32b-instruct:free",
+        "stealth/ox-alpha",
+        "poolside/laguna-s-2.1:free",
+        "cohere/north-mini-code:free",
+        "dots-studio/dots-3-note-preview:free",
         "google/gemini-2.0-flash-001",
-        "deepseek/deepseek-r1:free",
         "anthropic/claude-3.5-haiku",
         "openai/gpt-4o-mini",
     ],
@@ -58,8 +59,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self.theme = get_theme(active_theme_key)
 
         self.title("⚙ " + self.t.t("settings.title") + " & Personnalisation")
-        self.geometry("720x600")
-        self.minsize(640, 520)
+        self.geometry("780x640")
+        self.minsize(700, 560)
         self.transient(master)
         self.configure(fg_color=self.theme["bg"])
         self.grab_set()
@@ -95,20 +96,20 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             bottom,
             text=t.t("settings.cancel"),
-            width=100,
-            height=36,
+            width=110,
+            height=38,
             font=ctk.CTkFont(size=12),
             fg_color="#21262d",
             hover_color="#30363d",
             text_color=theme["text"],
             command=self.destroy,
-        ).pack(side="right", padx=(10, 0))
+        ).pack(side="right", padx=(8, 0))
 
         ctk.CTkButton(
             bottom,
             text="💾 " + t.t("settings.save"),
-            width=150,
-            height=36,
+            width=160,
+            height=38,
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=theme["accent"],
             hover_color=theme["accent_hover"],

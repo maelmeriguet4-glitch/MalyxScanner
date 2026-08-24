@@ -308,103 +308,114 @@ class ResultView(ctk.CTkFrame):
 
         if result.get("ai_report") and result["ai_report"].strip():
             # Display Report
-            rep_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
+            rep_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=10, border_width=1, border_color="#1f6feb")
             rep_card.pack(fill="both", expand=True, padx=4, pady=(0, 10))
 
             top_row = ctk.CTkFrame(rep_card, fg_color="transparent")
-            top_row.pack(fill="x", padx=12, pady=10)
+            top_row.pack(fill="x", padx=16, pady=12)
 
-            ctk.CTkLabel(top_row, text="✨ Rapport d'Expertise IA", font=ctk.CTkFont(size=14, weight="bold"), text_color="#58a6ff").pack(side="left")
+            ctk.CTkLabel(top_row, text="✨ Rapport d'Expertise IA", font=ctk.CTkFont(size=16, weight="bold"), text_color="#58a6ff").pack(side="left")
 
-            c_btn = ctk.CTkButton(
-                top_row,
-                text="📋 " + t.t("ai.copy_report"),
-                width=140,
-                height=28,
-                font=ctk.CTkFont(size=11, weight="bold"),
-                fg_color="#21262d",
-                hover_color="#30363d",
-            )
-            c_btn.configure(command=lambda v=result["ai_report"], b=c_btn: self._copy_to_clipboard(v, b, t))
-            c_btn.pack(side="right")
+            btn_box = ctk.CTkFrame(top_row, fg_color="transparent")
+            btn_box.pack(side="right")
 
-            text_box = ctk.CTkTextbox(rep_card, fg_color="#0d1117", text_color="#f0f6fc", font=ctk.CTkFont(size=13), wrap="word", height=420)
-            text_box.insert("1.0", result["ai_report"])
-            text_box.configure(state="disabled")
-            text_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
-
-            # Regenerate button
-            ctk.CTkButton(
-                frame,
-                text="🔄 Régénérer l'analyse IA",
-                font=ctk.CTkFont(size=12),
+            regen_btn = ctk.CTkButton(
+                btn_box,
+                text="🔄 Régénérer",
+                width=130,
+                height=34,
+                font=ctk.CTkFont(size=12, weight="bold"),
                 fg_color="#21262d",
                 hover_color="#30363d",
                 command=lambda: self._generate_ai(tab, t, result, ai_cfg),
-            ).pack(anchor="w", padx=6, pady=4)
+            )
+            regen_btn.pack(side="left", padx=4)
+
+            c_btn = ctk.CTkButton(
+                btn_box,
+                text="📋 " + t.t("ai.copy_report"),
+                width=160,
+                height=34,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color="#1f6feb",
+                hover_color="#1158c7",
+            )
+            c_btn.configure(command=lambda v=result["ai_report"], b=c_btn: self._copy_to_clipboard(v, b, t))
+            c_btn.pack(side="left", padx=4)
+
+            text_box = ctk.CTkTextbox(
+                rep_card,
+                fg_color="#0d1117",
+                text_color="#f0f6fc",
+                font=ctk.CTkFont(size=14),
+                wrap="word",
+                height=520,
+            )
+            text_box.insert("1.0", result["ai_report"])
+            text_box.configure(state="disabled")
+            text_box.pack(fill="both", expand=True, padx=16, pady=(0, 16))
 
         else:
             # Show generate button if AI is enabled + key present; otherwise show setup instructions
             if not ai_enabled or not ai_key:
                 # Config needed
-                info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#30363d")
+                info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=10, border_width=1, border_color="#30363d")
                 info_box.pack(fill="x", padx=4, pady=(0, 10))
                 i_inner = ctk.CTkFrame(info_box, fg_color="transparent")
-                i_inner.pack(fill="x", padx=16, pady=16)
+                i_inner.pack(fill="x", padx=20, pady=20)
                 ctk.CTkLabel(
                     i_inner,
-                    text="⚙️ Configuration requise",
-                    font=ctk.CTkFont(size=15, weight="bold"),
+                    text="⚙️ Configuration requise pour l'Analyste IA",
+                    font=ctk.CTkFont(size=16, weight="bold"),
                     text_color="#e3b341",
                 ).pack(anchor="w")
                 ctk.CTkLabel(
                     i_inner,
                     text=(
-                        "L'Analyste IA n'est pas encore configuré.\n\n"
-                        "Pour activer cette fonctionnalité :\n"
-                        "  1. Ouvrez ⚙ Réglages → onglet 🤖 Analyste IA\n"
-                        "  2. Activez le module et choisissez un fournisseur\n"
-                        "  3. Entrez votre clé API (OpenRouter recommandé — modèles gratuits disponibles)\n"
-                        "  4. Enregistrez les réglages et revenez ici\n\n"
-                        "💡 Modèle gratuit recommandé : meta-llama/llama-3.3-70b-instruct:free (rapide et précis)"
+                        "L'Analyste IA n'est pas encore activé ou votre clé API est absente.\n\n"
+                        "Pour l'activer en 30 secondes :\n"
+                        "  1. Cliquez sur le bouton ⚙ Réglages en haut à droite\n"
+                        "  2. Ouvrez l'onglet 🤖 Analyste IA et activez l'interrupteur\n"
+                        "  3. Entrez votre clé API OpenRouter (modèles gratuits inclus)\n"
+                        "  4. Enregistrez : le bouton d'analyse apparaîtra immédiatement ici !"
                     ),
-                    font=ctk.CTkFont(size=12),
+                    font=ctk.CTkFont(size=13),
                     text_color="#8b949e",
-                    wraplength=700,
+                    wraplength=1000,
                     justify="left",
-                ).pack(anchor="w", pady=(8, 0))
+                ).pack(anchor="w", pady=(10, 0))
             else:
                 # AI is configured — show the generate button
-                gen_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
+                gen_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=10, border_width=1, border_color="#1f6feb")
                 gen_card.pack(fill="x", padx=4, pady=(0, 10))
                 g_inner = ctk.CTkFrame(gen_card, fg_color="transparent")
-                g_inner.pack(fill="x", padx=16, pady=20)
+                g_inner.pack(fill="x", padx=20, pady=24)
                 ctk.CTkLabel(
                     g_inner,
                     text="✨ Analyste Cybersécurité IA — Prêt",
-                    font=ctk.CTkFont(size=14, weight="bold"),
+                    font=ctk.CTkFont(size=16, weight="bold"),
                     text_color="#58a6ff",
                 ).pack(anchor="w")
                 ctk.CTkLabel(
                     g_inner,
                     text=(
                         f"Fournisseur : {provider.upper()}   |   Modèle : {model or 'Défaut'}\n\n"
-                        "Cliquez sur le bouton ci-dessous pour générer une analyse cybersécurité approfondie "
-                        "et synthétique de ce fichier par l'intelligence artificielle.\n"
-                        "L'IA analysera la structure, les comportements réels (réseau, mémoire, persistance) "
-                        "et fournira un verdict clair avec des recommandations concrètes."
+                        "Cliquez sur le bouton ci-dessous pour générer une expertise cybersécurité approfondie "
+                        "et synthétique par l'intelligence artificielle.\n"
+                        "L'IA analysera la structure, les comportements réels (réseau, mémoire, persistance, chiffrement) "
+                        "et vous fournira un verdict clair avec des recommandations concrètes d'action."
                     ),
-                    font=ctk.CTkFont(size=12),
+                    font=ctk.CTkFont(size=13),
                     text_color="#8b949e",
-                    wraplength=700,
+                    wraplength=1000,
                     justify="left",
-                ).pack(anchor="w", pady=(8, 16))
+                ).pack(anchor="w", pady=(10, 20))
                 ctk.CTkButton(
                     g_inner,
                     text="🤖 Générer l'Analyse IA Approfondie",
-                    width=280,
-                    height=40,
-                    font=ctk.CTkFont(size=14, weight="bold"),
+                    width=320,
+                    height=46,
+                    font=ctk.CTkFont(size=15, weight="bold"),
                     fg_color="#1f6feb",
                     hover_color="#1158c7",
                     command=lambda: self._generate_ai(tab, t, result, ai_cfg),
