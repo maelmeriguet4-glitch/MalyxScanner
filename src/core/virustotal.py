@@ -1,7 +1,15 @@
 import requests
 
+# Inject Windows certificate store so HTTPS works behind Norton 360 / corporate proxies
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 API_URL = "https://www.virustotal.com/api/v3/files/"
 TIMEOUT = 20
+
 
 
 class VirusTotalError(Exception):

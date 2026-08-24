@@ -285,22 +285,22 @@ class SettingsDialog(ctk.CTkToplevel):
         ai_cfg = cfg.get("ai_analyst", {})
         self.ai_enable_var = ctk.BooleanVar(value=bool(ai_cfg.get("enabled", False)))
 
-        # Beta notice banner
-        beta_banner = ctk.CTkFrame(frame, fg_color="#1c1917", corner_radius=6, border_width=1, border_color="#d97706")
-        beta_banner.pack(fill="x", padx=10, pady=(10, 4))
-        b_inner = ctk.CTkFrame(beta_banner, fg_color="transparent")
+        # Status banner — AI is now active
+        status_banner = ctk.CTkFrame(frame, fg_color="#0d2818", corner_radius=6, border_width=1, border_color="#238636")
+        status_banner.pack(fill="x", padx=10, pady=(10, 4))
+        b_inner = ctk.CTkFrame(status_banner, fg_color="transparent")
         b_inner.pack(fill="x", padx=12, pady=8)
         ctk.CTkLabel(
             b_inner,
-            text="🚧 Module Analyste IA — En cours d'optimisation (Bêta)",
+            text="✅ Module Analyste IA — Actif",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#f59e0b",
+            text_color="#3fb950",
         ).pack(anchor="w")
         ctk.CTkLabel(
             b_inner,
-            text="Cette fonctionnalité avancée sera finalisée et activée pour tous dans la prochaine release.",
+            text="Fournisseurs supportés : OpenRouter (recommandé · modèles gratuits), Google Gemini, OpenAI, Anthropic Claude.",
             font=ctk.CTkFont(size=11),
-            text_color="#a8a29e",
+            text_color="#58a6ff",
             wraplength=520,
             justify="left",
         ).pack(anchor="w", pady=(2, 0))

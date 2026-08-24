@@ -341,43 +341,72 @@ class ResultView(ctk.CTkFrame):
             ).pack(anchor="w", padx=6, pady=4)
 
         else:
-            # Under Construction / Coming Soon banner
-            info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#30363d")
-            info_box.pack(fill="x", padx=4, pady=(0, 10))
+            # Show generate button if AI is enabled + key present; otherwise show setup instructions
+            if not ai_enabled or not ai_key:
+                # Config needed
+                info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#30363d")
+                info_box.pack(fill="x", padx=4, pady=(0, 10))
+                i_inner = ctk.CTkFrame(info_box, fg_color="transparent")
+                i_inner.pack(fill="x", padx=16, pady=16)
+                ctk.CTkLabel(
+                    i_inner,
+                    text="⚙️ Configuration requise",
+                    font=ctk.CTkFont(size=15, weight="bold"),
+                    text_color="#e3b341",
+                ).pack(anchor="w")
+                ctk.CTkLabel(
+                    i_inner,
+                    text=(
+                        "L'Analyste IA n'est pas encore configuré.\n\n"
+                        "Pour activer cette fonctionnalité :\n"
+                        "  1. Ouvrez ⚙ Réglages → onglet 🤖 Analyste IA\n"
+                        "  2. Activez le module et choisissez un fournisseur\n"
+                        "  3. Entrez votre clé API (OpenRouter recommandé — modèles gratuits disponibles)\n"
+                        "  4. Enregistrez les réglages et revenez ici\n\n"
+                        "💡 OpenRouter gratuit : openrouter.ai/keys — utilisez le modèle deepseek/deepseek-r1:free"
+                    ),
+                    font=ctk.CTkFont(size=12),
+                    text_color="#8b949e",
+                    wraplength=700,
+                    justify="left",
+                ).pack(anchor="w", pady=(8, 0))
+            else:
+                # AI is configured — show the generate button
+                gen_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
+                gen_card.pack(fill="x", padx=4, pady=(0, 10))
+                g_inner = ctk.CTkFrame(gen_card, fg_color="transparent")
+                g_inner.pack(fill="x", padx=16, pady=20)
+                ctk.CTkLabel(
+                    g_inner,
+                    text="✨ Analyste Cybersécurité IA — Prêt",
+                    font=ctk.CTkFont(size=14, weight="bold"),
+                    text_color="#58a6ff",
+                ).pack(anchor="w")
+                ctk.CTkLabel(
+                    g_inner,
+                    text=(
+                        f"Fournisseur : {provider.upper()}   |   Modèle : {model or 'Défaut'}\n\n"
+                        "Cliquez sur le bouton ci-dessous pour générer une analyse cybersécurité approfondie "
+                        "et personnalisée de ce fichier par l'intelligence artificielle.\n"
+                        "L'IA analysera la structure, les comportements suspects, les indicateurs de compromission "
+                        "et fournira un verdict détaillé avec des recommandations concrètes."
+                    ),
+                    font=ctk.CTkFont(size=12),
+                    text_color="#8b949e",
+                    wraplength=700,
+                    justify="left",
+                ).pack(anchor="w", pady=(8, 16))
+                ctk.CTkButton(
+                    g_inner,
+                    text="🤖 Générer l'Analyse IA Approfondie",
+                    width=280,
+                    height=40,
+                    font=ctk.CTkFont(size=14, weight="bold"),
+                    fg_color="#1f6feb",
+                    hover_color="#1158c7",
+                    command=lambda: self._generate_ai(tab, t, result, ai_cfg),
+                ).pack(anchor="w")
 
-            i_inner = ctk.CTkFrame(info_box, fg_color="transparent")
-            i_inner.pack(fill="x", padx=16, pady=16)
-
-            ctk.CTkLabel(
-                i_inner,
-                text="🚧 Analyste IA en cours de construction & optimisation",
-                font=ctk.CTkFont(size=15, weight="bold"),
-                text_color="#e3b341",
-            ).pack(anchor="w")
-
-            desc_text = (
-                "L'intégration complète du Moteur d'Analyste Cybersécurité IA (OpenRouter, Google Gemini, OpenAI, Anthropic Claude) "
-                "est actuellement en cours de calibrage et d'optimisation finale. Cette fonctionnalité sera pleinement disponible dans la prochaine mise à jour !\n\n"
-                "Tous les autres moteurs d'analyse locale (Inspection de signatures, Règles YARA, Structure PE, Entropie par blocs, "
-                "Extraction de commandes et IOCs, Détection de Rançongiciels et Réputation VirusTotal) sont 100% opérationnels et actifs."
-            )
-            ctk.CTkLabel(
-                i_inner,
-                text=desc_text,
-                font=ctk.CTkFont(size=12),
-                text_color="#8b949e",
-                wraplength=700,
-                justify="left",
-            ).pack(anchor="w", pady=(8, 12))
-
-            ctk.CTkLabel(
-                i_inner,
-                text="⚡ Prochaine version : Explications personnalisées sur-mesure des capacités techniques de chaque binaire.",
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color="#58a6ff",
-                wraplength=700,
-                justify="left",
-            ).pack(anchor="w")
 
     def _generate_ai(self, tab, t, result, ai_cfg):
         if self.ai_loading:
@@ -605,25 +634,39 @@ class ResultView(ctk.CTkFrame):
             return
 
         info = pe.get("info", {})
-        sec_flags = info.get("security_flags", {})
 
         # Header Info
         section_header(frame, "En-tête & Propriétés Générales")
         h_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
         h_card.pack(fill="x", padx=4, pady=(0, 10))
-        self._kv_row(h_card, t.t("field.architecture"), info.get("architecture", "?"), t)
+        # Bug #1 fixed: "machine" (not "architecture")
+        self._kv_row(h_card, t.t("field.architecture"), info.get("machine", "?"), t)
         self._kv_row(h_card, t.t("field.subsystem"), info.get("subsystem", "?"), t)
         ep_val = hex(info["entry_point"]) if isinstance(info.get("entry_point"), int) else str(info.get("entry_point") or "?")
         ib_val = hex(info["image_base"]) if isinstance(info.get("image_base"), int) else str(info.get("image_base") or "?")
         self._kv_row(h_card, t.t("field.entry_point"), ep_val, t, mono=True)
         self._kv_row(h_card, t.t("field.image_base"), ib_val, t, mono=True)
-        if info.get("debug_path"):
-            self._kv_row(h_card, t.t("field.pdb_path"), info["debug_path"], t, copyable=True, mono=True)
+        # Bug #2 fixed: "pdb_path" (not "debug_path")
+        if info.get("pdb_path"):
+            self._kv_row(h_card, t.t("field.pdb_path"), info["pdb_path"], t, copyable=True, mono=True)
 
-        # Digital Signature
-        sig_color = "#3fb950" if sec_flags.get("has_digital_signature") else "#8b949e"
-        sig_text = "Oui (Présente)" if sec_flags.get("has_digital_signature") else "Non signée"
+        # Digital Signature — Bug #4 fixed: use info["is_signed"] directly (not security_flags.has_digital_signature)
+        is_signed = bool(info.get("is_signed"))
+        is_dotnet = bool(info.get("is_dotnet"))
+        sig_color = "#3fb950" if is_signed else "#8b949e"
+        sig_text = "Oui (Présente)" if is_signed else "Non signée"
         self._kv_row(h_card, t.t("field.signature"), sig_text, t, custom_color=sig_color)
+        if is_dotnet:
+            self._kv_row(h_card, ".NET / Managed", "Oui", t, custom_color="#58a6ff")
+        compiled = info.get("compiled")
+        if compiled:
+            self._kv_row(h_card, "Compilé le", compiled, t)
+        overlay_mb = info.get("overlay_mb")
+        if overlay_mb is not None:
+            self._kv_row(h_card, "Overlay (données après fin PE)", f"{overlay_mb} Mo", t,
+                         custom_color="#e3b341" if overlay_mb > 1 else "#e6edf3")
+        self._kv_row(h_card, "Imports", f"{info.get('imports_count', 0)} fonctions importées", t)
+        self._kv_row(h_card, "Exports", f"{info.get('exports_count', 0)} fonctions exportées", t)
 
         # MITRE APIs
         mitre = info.get("mitre_apis", {})
@@ -639,6 +682,7 @@ class ResultView(ctk.CTkFrame):
                 "hooking": ("Interception de frappes / Messages (Hooking)", "#f85149"),
                 "antidebug": ("Anti-Débogage / Évasion", "#e5b810"),
                 "crypto": ("Chiffrement / Hachage", "#8b949e"),
+                "privilege": ("Élévation de privilèges", "#fa8c16"),
             }
             for cat, apis in mitre.items():
                 if apis:
@@ -660,10 +704,13 @@ class ResultView(ctk.CTkFrame):
                 sname = s.get("name", "?")
                 sent = s.get("entropy", 0.0)
                 sz = s.get("virtual_size", 0)
-                is_wx = s.get("is_writable") and s.get("is_executable")
-                badge_txt = " [W+X]" if is_wx else ""
-                col = "#f85149" if is_wx or sent > 7.2 else "#e6edf3"
-                ctk.CTkLabel(srow, text=f"{sname:8s} | Entropie: {sent:.2f} | Taille: {sz:,} o{badge_txt}", font=ctk.CTkFont(family="Consolas", size=12), text_color=col).pack(side="left")
+                flags_str = s.get("flags", "")
+                # Bug #3 fixed: use "flags" string (not is_writable/is_executable keys that don't exist)
+                is_wx = "W" in flags_str and "X" in flags_str
+                badge_txt = " [W+X ⚠️]" if is_wx else ""
+                flags_display = f" [{flags_str}]" if flags_str and not is_wx else ""
+                col = "#f85149" if is_wx or sent > 7.2 else ("#e3b341" if sent > 6.5 else "#e6edf3")
+                ctk.CTkLabel(srow, text=f"{sname:8s} | Entropie: {sent:.2f} | {sz:,} o{flags_display}{badge_txt}", font=ctk.CTkFont(family="Consolas", size=12), text_color=col).pack(side="left")
 
     # --- 5. Entropy & Blocks Tab ---
     def _fill_entropy(self, tab, t, result):
