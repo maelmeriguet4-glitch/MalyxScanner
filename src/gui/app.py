@@ -273,7 +273,7 @@ class MalyxApp:
     def _show_result(self, result):
         for child in self.content.winfo_children():
             child.destroy()
-        view = ResultView(master=self.content, result=result, translator=self.t)
+        view = ResultView(master=self.content, result=result, translator=self.t, config=self.config)
         view.pack(fill="both", expand=True)
 
         verdict = result["risk"]["verdict"]

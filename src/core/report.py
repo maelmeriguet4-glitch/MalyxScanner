@@ -206,6 +206,13 @@ def render_txt(result, t):
         lines.append(t.t("vt.error_network"))
     lines.append("")
 
+    if result.get("ai_report"):
+        lines.append("-" * 66)
+        lines.append(f"  {t.t('tabs.ai_report')}")
+        lines.append("-" * 66)
+        lines.append(result["ai_report"])
+        lines.append("")
+
     lines.append("-" * 66)
     lines.append(t.t("tabs.privacy"))
     lines.append("-" * 66)

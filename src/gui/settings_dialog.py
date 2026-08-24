@@ -10,6 +10,27 @@ RAM_PROFILES = {
     "max_speed": {"max_mb": 500, "block_kb": 8, "yara": True, "strings": True},
 }
 
+AI_PROVIDERS = [
+    ("openrouter", "OpenRouter (Universel — DeepSeek, Claude, Llama, GPT)"),
+    ("google", "Google Gemini (Gemini 2.0 Flash / Pro)"),
+    ("openai", "OpenAI (GPT-4o / GPT-4o-mini)"),
+    ("anthropic", "Anthropic (Claude 3.5 Sonnet / Haiku)"),
+]
+
+AI_MODEL_SUGGESTIONS = {
+    "openrouter": ["google/gemini-2.0-flash-001", "anthropic/claude-3.5-haiku", "openai/gpt-4o-mini", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b-instruct"],
+    "google": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+    "openai": ["gpt-4o-mini", "gpt-4o"],
+    "anthropic": ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
+}
+
+AI_KEY_LINKS = {
+    "openrouter": "https://openrouter.ai/keys",
+    "google": "https://aistudio.google.com/app/apikey",
+    "openai": "https://platform.openai.com/api-keys",
+    "anthropic": "https://console.anthropic.com/settings/keys",
+}
+
 
 class SettingsDialog(ctk.CTkToplevel):
     def __init__(self, master, config, translator, on_saved=None, **kwargs):
@@ -23,8 +44,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self.theme = get_theme(active_theme_key)
 
         self.title("⚙ " + self.t.t("settings.title") + " & Personnalisation")
-        self.geometry("640x520")
-        self.minsize(580, 480)
+        self.geometry("680x560")
+        self.minsize(620, 500)
         self.transient(master)
         self.configure(fg_color=self.theme["bg"])
         self.grab_set()
@@ -63,6 +84,7 @@ class SettingsDialog(ctk.CTkToplevel):
 
         tab_general = tabs.add(t.t("settings.tab_general"))
         tab_perf = tabs.add(t.t("settings.tab_perf"))
+        tab_ai = tabs.add("🤖 " + t.t("settings.tab_ai"))
         tab_vt = tabs.add(t.t("settings.tab_vt"))
         tab_contact = tabs.add(t.t("settings.tab_contact"))
 
@@ -72,10 +94,13 @@ class SettingsDialog(ctk.CTkToplevel):
         # --- 2. Tab Performance & RAM ---
         self._build_perf_tab(tab_perf, t, theme, cfg)
 
-        # --- 3. Tab VirusTotal ---
+        # --- 3. Tab AI Analyst ---
+        self._build_ai_tab(tab_ai, t, theme, cfg)
+
+        # --- 4. Tab VirusTotal ---
         self._build_vt_tab(tab_vt, t, theme, cfg)
 
-        # --- 4. Tab Contact & Feedback ---
+        # --- 5. Tab Contact & Feedback ---
         self._build_contact_tab(tab_contact, t, theme, cfg)
 
         # Bottom Buttons
@@ -235,6 +260,122 @@ class SettingsDialog(ctk.CTkToplevel):
         self.yara_var.set(pdata["yara"])
         self.strings_var.set(pdata["strings"])
 
+    def _build_ai_tab(self, parent, t, theme, cfg):
+        frame = ctk.CTkScrollableFrame(parent, fg_color=theme["card"])
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+
+        ai_cfg = cfg.get("ai_analyst", {})
+        self.ai_enable_var = ctk.BooleanVar(value=bool(ai_cfg.get("enabled", False)))
+
+        # Header card
+        header_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=6, border_width=1, border_color=theme["border"])
+        header_card.pack(fill="x", padx=10, pady=(10, 10))
+
+        h_inner = ctk.CTkFrame(header_card, fg_color="transparent")
+        h_inner.pack(fill="x", padx=12, pady=10)
+
+        ctk.CTkSwitch(
+            h_inner,
+            text=t.t("settings.ai_enable"),
+            font=ctk.CTkFont(size=14, weight="bold"),
+            progress_color=theme["accent"],
+            variable=self.ai_enable_var,
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            h_inner,
+            text=t.t("settings.ai_desc"),
+            font=ctk.CTkFont(size=11),
+            text_color="#58a6ff",
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 0))
+
+        # Provider Selector
+        ctk.CTkLabel(frame, text=t.t("settings.ai_provider") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(8, 4))
+        
+        self.provider_labels = [label for _, label in AI_PROVIDERS]
+        self.provider_keys = [key for key, _ in AI_PROVIDERS]
+        self.provider_menu = ctk.CTkOptionMenu(
+            frame,
+            values=self.provider_labels,
+            fg_color=theme["subcard"],
+            button_color=theme["accent"],
+            button_hover_color=theme["accent_hover"],
+            command=self._on_ai_provider_change,
+        )
+        cur_p = ai_cfg.get("provider", "openrouter")
+        p_idx = self.provider_keys.index(cur_p) if cur_p in self.provider_keys else 0
+        self.provider_menu.set(self.provider_labels[p_idx])
+        self.provider_menu.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Model input / dropdown
+        ctk.CTkLabel(frame, text=t.t("settings.ai_model") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
+        self.ai_model_menu = ctk.CTkComboBox(
+            frame,
+            values=AI_MODEL_SUGGESTIONS.get(cur_p, ["google/gemini-2.0-flash-001"]),
+            fg_color=theme["subcard"],
+            border_color=theme["border"],
+        )
+        cur_model = ai_cfg.get("model", "") or AI_MODEL_SUGGESTIONS.get(cur_p, ["google/gemini-2.0-flash-001"])[0]
+        self.ai_model_menu.set(cur_model)
+        self.ai_model_menu.pack(fill="x", padx=10, pady=(0, 10))
+
+        # API Key
+        ctk.CTkLabel(frame, text=t.t("settings.ai_api_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
+        self.ai_key_entry = ctk.CTkEntry(frame, show="•", fg_color=theme["subcard"], border_color=theme["border"])
+        self.ai_key_entry.insert(0, ai_cfg.get("api_key", ""))
+        self.ai_key_entry.pack(fill="x", padx=10, pady=(0, 8))
+
+        # Get API key button
+        self.ai_link_btn = ctk.CTkButton(
+            frame,
+            text="🔑 " + t.t("settings.ai_get_key"),
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            text_color=theme["text"],
+            command=self._open_ai_key_link,
+        )
+        self.ai_link_btn.pack(anchor="w", padx=10, pady=(4, 10))
+
+        # Auto analyze toggle
+        self.ai_auto_var = ctk.BooleanVar(value=bool(ai_cfg.get("auto_analyze", False)))
+        ctk.CTkSwitch(
+            frame,
+            text=t.t("settings.ai_auto_analyze"),
+            font=ctk.CTkFont(size=13),
+            progress_color=theme["accent"],
+            variable=self.ai_auto_var,
+        ).pack(anchor="w", padx=10, pady=(6, 12))
+
+        # Privacy notice
+        p_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=6, border_width=1, border_color="#1f6feb")
+        p_card.pack(fill="x", padx=10, pady=(4, 10))
+        ctk.CTkLabel(
+            p_card,
+            text="🔒 " + t.t("settings.ai_privacy_note"),
+            font=ctk.CTkFont(size=11),
+            text_color="#58a6ff",
+            wraplength=520,
+            justify="left",
+        ).pack(padx=12, pady=10, anchor="w")
+
+    def _on_ai_provider_change(self, choice):
+        idx = self.provider_labels.index(choice) if choice in self.provider_labels else 0
+        key = self.provider_keys[idx]
+        suggestions = AI_MODEL_SUGGESTIONS.get(key, [])
+        self.ai_model_menu.configure(values=suggestions)
+        if suggestions:
+            self.ai_model_menu.set(suggestions[0])
+
+    def _open_ai_key_link(self):
+        choice = self.provider_menu.get()
+        idx = self.provider_labels.index(choice) if choice in self.provider_labels else 0
+        key = self.provider_keys[idx]
+        link = AI_KEY_LINKS.get(key, "https://openrouter.ai/keys")
+        webbrowser.open(link)
+
     def _build_vt_tab(self, parent, t, theme, cfg):
         frame = ctk.CTkScrollableFrame(parent, fg_color=theme["card"])
         frame.pack(fill="both", expand=True, padx=4, pady=4)
@@ -355,7 +496,8 @@ class SettingsDialog(ctk.CTkToplevel):
         info_card.pack(fill="x", padx=10, pady=(6, 10))
         ctk.CTkLabel(
             info_card,
-            text=f"🛡️ MalyxScanner v2.0 — {t.t('settings.vibe_desc')}\nCréé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces.",
+            text=f"🛡️ MalyxScanner v2.0 — {t.t('settings.vibe_desc')}
+Créé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces.",
             font=ctk.CTkFont(size=11),
             text_color=theme["subtext"],
             wraplength=520,
@@ -408,6 +550,15 @@ class SettingsDialog(ctk.CTkToplevel):
 
         perf["enable_yara"] = bool(self.yara_var.get())
         perf["enable_strings_scan"] = bool(self.strings_var.get())
+
+        # AI Analyst
+        ai_cfg = self.config_data.setdefault("ai_analyst", {})
+        ai_cfg["enabled"] = bool(self.ai_enable_var.get())
+        idx_p = self.provider_labels.index(self.provider_menu.get()) if self.provider_menu.get() in self.provider_labels else 0
+        ai_cfg["provider"] = self.provider_keys[idx_p]
+        ai_cfg["model"] = self.ai_model_menu.get().strip()
+        ai_cfg["api_key"] = self.ai_key_entry.get().strip()
+        ai_cfg["auto_analyze"] = bool(self.ai_auto_var.get())
 
         # VirusTotal
         vt = self.config_data.setdefault("virustotal", {})

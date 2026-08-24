@@ -26,6 +26,13 @@ DEFAULTS = {
         "enabled": False,
         "api_key": "",
     },
+    "ai_analyst": {
+        "enabled": False,
+        "provider": "openrouter",
+        "api_key": "",
+        "model": "google/gemini-2.0-flash-001",
+        "auto_analyze": False,
+    },
     "contact": {
         "developer_email": "maelmeriguet4@proton.me",
     },

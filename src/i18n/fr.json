@@ -24,7 +24,8 @@
     "yara": "Signatures",
     "vt": "VirusTotal",
     "privacy": "Confidentialité",
-    "safety": "🛡️ Sécurité & Exécution"
+    "safety": "🛡️ Sécurité & Exécution",
+    "ai_report": "🤖 Rapport IA"
   },
   "verdict": {
     "clean": "SAIN",
@@ -223,7 +224,16 @@
     "contact_title": "Contact Développeur & Retours",
     "contact_desc": "Une idée d'amélioration ? Un bug à signaler ? Une recommandation ? Écrivez directement au développeur :",
     "contact_send_mail": "Envoyer un e-mail au développeur",
-    "vibe_desc": "Projet 100% local, privé et open source — Vibe Coding avec Antigravity 🚀"
+    "vibe_desc": "Projet 100% local, privé et open source — Vibe Coding avec Antigravity 🚀",
+    "tab_ai": "Analyste IA",
+    "ai_enable": "Activer l'Analyste Cybersécurité IA (OpenRouter, Google, OpenAI, Anthropic)",
+    "ai_desc": "L'IA analyse les indicateurs techniques et génère une explication sur-mesure des capacités réelles du fichier et de ses risques.",
+    "ai_provider": "Fournisseur d'IA",
+    "ai_model": "Modèle d'Intelligence Artificielle",
+    "ai_api_key": "Clé d'API du fournisseur",
+    "ai_get_key": "Obtenir une clé API auprès du fournisseur",
+    "ai_auto_analyze": "Générer automatiquement l'analyse IA après chaque scan",
+    "ai_privacy_note": "Confidentialité garantie : aucun fichier binaire n'est transmis. Seules les métadonnées techniques extraites (noms de fonctions, hachages, entropie) sont analysées."
   },
   "misc": {
     "yes": "Oui",
@@ -289,5 +299,14 @@
     "check_virustotal": "Vérifier les résultats de la réputation VirusTotal dans l'onglet dédié.",
     "do_not_disable_defender": "Ne désactivez jamais votre antivirus si le fichier vous le demande.",
     "safe_ok_to_open": "Vous pouvez ouvrir et utiliser ce fichier sans précaution particulière."
+  },
+  "ai": {
+    "generate_btn": "✨ Générer l'Analyse IA Approfondie",
+    "loading": "Génération de l'analyse par l'Analyste IA en cours...",
+    "not_configured_title": "Analyste Cybersécurité IA non configuré",
+    "not_configured_desc": "Pour obtenir une explication sur-mesure et dynamique des pouvoirs de ce fichier, activez l'Analyste IA dans les Réglages avec une clé OpenRouter, Google Gemini, OpenAI ou Anthropic.",
+    "open_settings_btn": "⚙ Configurer l'Analyste IA dans les Réglages",
+    "copy_report": "📋 Copier le rapport IA",
+    "error_title": "Erreur lors de la génération IA"
   }
 }

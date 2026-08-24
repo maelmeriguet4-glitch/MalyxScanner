@@ -24,7 +24,8 @@
     "yara": "Signatures",
     "vt": "VirusTotal",
     "privacy": "Privacy",
-    "safety": "🛡️ Safety & Execution"
+    "safety": "🛡️ Safety & Execution",
+    "ai_report": "🤖 AI Report"
   },
   "verdict": {
     "clean": "CLEAN",
@@ -223,7 +224,16 @@
     "contact_title": "Developer Contact & Feedback",
     "contact_desc": "Have an idea for improvement? A bug to report? A recommendation? Reach out directly to the developer:",
     "contact_send_mail": "Send an email to the developer",
-    "vibe_desc": "100% local, private & open source — Vibe Coded with Antigravity 🚀"
+    "vibe_desc": "100% local, private & open source — Vibe Coded with Antigravity 🚀",
+    "tab_ai": "AI Analyst",
+    "ai_enable": "Enable Cybersecurity AI Analyst (OpenRouter, Google, OpenAI, Anthropic)",
+    "ai_desc": "AI analyzes technical indicators to generate a tailored, non-repetitive breakdown of the file's concrete capabilities and risks.",
+    "ai_provider": "AI Provider",
+    "ai_model": "AI Model",
+    "ai_api_key": "Provider API Key",
+    "ai_get_key": "Get an API key from provider",
+    "ai_auto_analyze": "Automatically generate AI report after each scan",
+    "ai_privacy_note": "Privacy guaranteed: no binary file is uploaded. Only extracted technical metadata (function names, hashes, entropy) is analyzed."
   },
   "misc": {
     "yes": "Yes",
@@ -289,5 +299,14 @@
     "check_virustotal": "Review VirusTotal reputation results in the dedicated tab.",
     "do_not_disable_defender": "Never disable your antivirus even if the file asks you to.",
     "safe_ok_to_open": "You can open and use this file without special precautions."
+  },
+  "ai": {
+    "generate_btn": "✨ Generate Deep AI Analysis",
+    "loading": "Generating report with Cybersecurity AI Analyst...",
+    "not_configured_title": "AI Cybersecurity Analyst Not Configured",
+    "not_configured_desc": "To get a tailored, dynamic explanation of this file's capabilities, enable the AI Analyst in Settings with an OpenRouter, Google Gemini, OpenAI or Anthropic key.",
+    "open_settings_btn": "⚙ Configure AI Analyst in Settings",
+    "copy_report": "📋 Copy AI report",
+    "error_title": "Error generating AI report"
   }
 }

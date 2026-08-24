@@ -1,4 +1,9 @@
+import os
+import threading
 import customtkinter as ctk
+
+from core.ai_analyst import query_ai_analyst
+
 
 SEVERITY_COLORS = {
     "critical": {"bg": "#3c1116", "fg": "#ff4d4f", "border": "#ff4d4f", "badge": "#ff4d4f"},
@@ -61,21 +66,21 @@ def finding_card(parent, t, finding):
 
     card = ctk.CTkFrame(
         parent,
-        fg_color="#161b22",
-        corner_radius=8,
+        fg_color="#0d1117",
+        corner_radius=6,
         border_width=1,
         border_color=theme["border"],
     )
     card.pack(fill="x", padx=4, pady=3)
 
     inner = ctk.CTkFrame(card, fg_color="transparent")
-    inner.pack(fill="x", padx=12, pady=8)
+    inner.pack(fill="x", padx=10, pady=8)
 
-    badge = ctk.CTkFrame(inner, fg_color=theme["bg"], corner_radius=4, border_width=1, border_color=theme["border"])
+    badge = ctk.CTkFrame(inner, fg_color=theme["bg"], corner_radius=4, border_width=1, border_color=theme["badge"])
     badge.pack(side="left", padx=(0, 10))
     ctk.CTkLabel(
         badge,
-        text=f"{SEVERITY_ICONS.get(sev, '•')} {sev_label}",
+        text=f"{SEVERITY_ICONS.get(sev, 'ℹ️')} {sev_label.upper()}",
         font=ctk.CTkFont(size=11, weight="bold"),
         text_color=theme["fg"],
         padx=8,
@@ -94,10 +99,12 @@ def finding_card(parent, t, finding):
 
 
 class ResultView(ctk.CTkFrame):
-    def __init__(self, master, result, translator, **kwargs):
+    def __init__(self, master, result, translator, config=None, **kwargs):
         super().__init__(master, fg_color="#0d1117", **kwargs)
         self.result = result
         self.t = translator
+        self.config = config or {}
+        self.ai_loading = False
         self._build()
 
     def _build(self):
@@ -179,84 +186,92 @@ class ResultView(ctk.CTkFrame):
         e_inner = ctk.CTkFrame(exec_banner, fg_color="transparent")
         e_inner.pack(fill="x", padx=14, pady=8)
 
-        status_text = t.t(f"execution.status.{adv_status}")
+        adv_title = t.t(advice.get("title_key", "execution.safe_title"))
+        adv_msg = t.t(advice.get("message_key", "execution.safe_message"))
+
         ctk.CTkLabel(
             e_inner,
-            text=f"{atheme['icon']}  {status_text}",
+            text=f"{atheme['icon']} {adv_title}",
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=atheme["title_color"],
-            anchor="w",
         ).pack(anchor="w")
 
-        msg_key = advice.get("message_key", "execution.safe_message")
         ctk.CTkLabel(
             e_inner,
-            text=t.t(msg_key),
+            text=adv_msg,
             font=ctk.CTkFont(size=12),
             text_color="#e6edf3",
-            wraplength=940,
+            wraplength=780,
             justify="left",
-            anchor="w",
         ).pack(anchor="w", pady=(2, 0))
 
-        # --- 4 Quick Metric Summary Cards ---
-        metrics_bar = ctk.CTkFrame(self, fg_color="transparent")
-        metrics_bar.pack(fill="x", padx=12, pady=(0, 8))
-        metrics_bar.columnconfigure((0, 1, 2, 3), weight=1)
+        # --- Four Metric KPI Cards ---
+        cards_frame = ctk.CTkFrame(self, fg_color="transparent")
+        cards_frame.pack(fill="x", padx=12, pady=(0, 8))
+        cards_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
-        real_type = result.get("identity", {}).get("human_type") or result.get("identity", {}).get("family", "inconnu")
-        ent_val = result.get("entropy", {}).get("global", 0)
-        
+        # 1. Type
+        ext_label = result.get("identity", {}).get("extension") or t.t("misc.unknown")
+        c1 = ctk.CTkFrame(cards_frame, fg_color="#161b22", corner_radius=8, border_width=1, border_color="#30363d")
+        c1.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        ctk.CTkLabel(c1, text="📁 " + t.t("field.type_declared"), font=ctk.CTkFont(size=11), text_color="#8b949e").pack(anchor="w", padx=10, pady=(6, 0))
+        ctk.CTkLabel(c1, text=ext_label, font=ctk.CTkFont(size=14, weight="bold"), text_color="#f0f6fc").pack(anchor="w", padx=10, pady=(0, 6))
+
+        # 2. Threat Family
+        c2 = ctk.CTkFrame(cards_frame, fg_color="#161b22", corner_radius=8, border_width=1, border_color="#30363d")
+        c2.grid(row=0, column=1, sticky="ew", padx=4)
+        ctk.CTkLabel(c2, text="🏷️ " + t.t("threat.title"), font=ctk.CTkFont(size=11), text_color="#8b949e").pack(anchor="w", padx=10, pady=(6, 0))
+        ctk.CTkLabel(c2, text=f"{threat_icon} {threat_name}", font=ctk.CTkFont(size=12, weight="bold"), text_color="#f85149" if threat_key != "clean" else "#3fb950").pack(anchor="w", padx=10, pady=(0, 6))
+
+        # 3. Global Entropy
+        ent_val = result.get("entropy", {}).get("global")
+        ent_str = f"{ent_val:.2f} / 8.0" if ent_val is not None else t.t("misc.unknown")
+        ent_color = "#f85149" if ent_val and ent_val > 7.2 else ("#e3b341" if ent_val and ent_val > 6.5 else "#3fb950")
+        c3 = ctk.CTkFrame(cards_frame, fg_color="#161b22", corner_radius=8, border_width=1, border_color="#30363d")
+        c3.grid(row=0, column=2, sticky="ew", padx=4)
+        ctk.CTkLabel(c3, text="📊 " + t.t("field.entropy"), font=ctk.CTkFont(size=11), text_color="#8b949e").pack(anchor="w", padx=10, pady=(6, 0))
+        ctk.CTkLabel(c3, text=ent_str, font=ctk.CTkFont(size=14, weight="bold"), text_color=ent_color).pack(anchor="w", padx=10, pady=(0, 6))
+
+        # 4. Total Anomalies count
         all_findings = []
-        for f in result.get("identity", {}).get("findings", []):
-            if f.get("code") != "find.type_ok":
-                all_findings.append(f)
+        all_findings.extend(result.get("identity", {}).get("findings", []))
         if result.get("entropy", {}).get("finding"):
             all_findings.append(result["entropy"]["finding"])
-        for f in result.get("pe", {}).get("findings", []):
-            if f.get("code") != "pe.not_pe":
-                all_findings.append(f)
-        for m in result.get("yara", {}).get("matches", []):
-            all_findings.append({"code": "yara.match", "severity": m["severity"]})
+        all_findings.extend(result.get("pe", {}).get("findings", []))
+        all_findings.extend(result.get("yara", {}).get("findings", []))
 
-        metric_items = [
-            ("📁 Type de fichier", str(real_type)[:24], "#58a6ff"),
-            ("🏷️ Famille de menace", f"{threat_icon} {threat_name}", "#f85149" if threat_key != "clean" else "#3fb950"),
-            ("📊 Entropie globale", f"{ent_val:.2f} / 8.0" if ent_val else "N/A", "#bc8cff"),
-            ("⚠️ Indicateurs détectés", f"{len(all_findings)} élément(s)", "#f0883e" if all_findings else "#3fb950"),
-        ]
+        c4 = ctk.CTkFrame(cards_frame, fg_color="#161b22", corner_radius=8, border_width=1, border_color="#30363d")
+        c4.grid(row=0, column=3, sticky="ew", padx=(4, 0))
+        ctk.CTkLabel(c4, text="⚠️ " + t.t("tabs.findings"), font=ctk.CTkFont(size=11), text_color="#8b949e").pack(anchor="w", padx=10, pady=(6, 0))
+        warn_cnt = len([f for f in all_findings if f.get("severity") in ("critical", "high", "medium")])
+        c4_color = "#f85149" if warn_cnt > 2 else ("#e3b341" if warn_cnt > 0 else "#3fb950")
+        ctk.CTkLabel(c4, text=f"{len(all_findings)} élément(s)", font=ctk.CTkFont(size=14, weight="bold"), text_color=c4_color).pack(anchor="w", padx=10, pady=(0, 6))
 
-        for col, (m_label, m_val, m_col) in enumerate(metric_items):
-            m_card = ctk.CTkFrame(metrics_bar, fg_color="#161b22", corner_radius=8, border_width=1, border_color="#30363d")
-            m_card.grid(row=0, column=col, padx=3, sticky="nsew")
-            ctk.CTkLabel(m_card, text=m_label, font=ctk.CTkFont(size=11), text_color="#8b949e", anchor="w").pack(padx=10, pady=(6, 0), anchor="w")
-            ctk.CTkLabel(m_card, text=m_val, font=ctk.CTkFont(size=13, weight="bold"), text_color=m_col, anchor="w").pack(padx=10, pady=(2, 6), anchor="w")
-
-        # --- Main Tabview ---
-        tabs = ctk.CTkTabview(
+        # --- Main Tabview with Tabs ---
+        self.tabs = ctk.CTkTabview(
             self,
-            anchor="nw",
             fg_color="#161b22",
             segmented_button_fg_color="#0d1117",
             segmented_button_selected_color="#1f6feb",
             segmented_button_unselected_color="#21262d",
             segmented_button_selected_hover_color="#1158c7",
         )
-        tabs.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+        self.tabs.pack(fill="both", expand=True, padx=12, pady=(0, 10))
 
-        tab_keys = ["summary", "safety", "identity", "pe", "entropy", "strings", "yara", "vt", "privacy"]
+        tab_keys = ["summary", "safety", "ai_report", "identity", "pe", "entropy", "strings", "yara", "vt", "privacy"]
         for key in tab_keys:
-            tabs.add(t.t(f"tabs.{key}"))
+            self.tabs.add(t.t(f"tabs.{key}"))
 
-        self._fill_summary(tabs.tab(t.t("tabs.summary")), t, result, all_findings, advice, threat_key)
-        self._fill_safety(tabs.tab(t.t("tabs.safety")), t, result, advice, threat_key)
-        self._fill_identity(tabs.tab(t.t("tabs.identity")), t, result)
-        self._fill_pe(tabs.tab(t.t("tabs.pe")), t, result)
-        self._fill_entropy(tabs.tab(t.t("tabs.entropy")), t, result)
-        self._fill_strings(tabs.tab(t.t("tabs.strings")), t, result)
-        self._fill_yara(tabs.tab(t.t("tabs.yara")), t, result)
-        self._fill_vt(tabs.tab(t.t("tabs.vt")), t, result)
-        self._fill_privacy(tabs.tab(t.t("tabs.privacy")), t)
+        self._fill_summary(self.tabs.tab(t.t("tabs.summary")), t, result, all_findings, advice, threat_key)
+        self._fill_safety(self.tabs.tab(t.t("tabs.safety")), t, result, advice, threat_key)
+        self._fill_ai_report(self.tabs.tab(t.t("tabs.ai_report")), t, result)
+        self._fill_identity(self.tabs.tab(t.t("tabs.identity")), t, result)
+        self._fill_pe(self.tabs.tab(t.t("tabs.pe")), t, result)
+        self._fill_entropy(self.tabs.tab(t.t("tabs.entropy")), t, result)
+        self._fill_strings(self.tabs.tab(t.t("tabs.strings")), t, result)
+        self._fill_yara(self.tabs.tab(t.t("tabs.yara")), t, result)
+        self._fill_vt(self.tabs.tab(t.t("tabs.vt")), t, result)
+        self._fill_privacy(self.tabs.tab(t.t("tabs.privacy")), t)
 
     def _scrollable(self, tab):
         return ctk.CTkScrollableFrame(tab, fg_color="#161b22")
@@ -271,6 +286,166 @@ class ResultView(ctk.CTkFrame):
             self.after(1400, lambda: btn.configure(text=orig_text, fg_color="#21262d"))
         except Exception:
             pass
+
+    # --- AI Report Tab ---
+    def _fill_ai_report(self, tab, t, result):
+        for child in tab.winfo_children():
+            child.destroy()
+
+        frame = self._scrollable(tab)
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+
+        ai_cfg = self.config.get("ai_analyst", {})
+        ai_enabled = bool(ai_cfg.get("enabled"))
+        ai_key = ai_cfg.get("api_key", "").strip()
+        provider = ai_cfg.get("provider", "openrouter")
+        model = ai_cfg.get("model", "")
+
+        section_header(frame, "🤖 Analyste Cybersécurité IA", f"{provider.upper()} ({model or 'Défaut'})")
+
+        if result.get("ai_report"):
+            # Display Report
+            rep_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
+            rep_card.pack(fill="both", expand=True, padx=4, pady=(0, 10))
+
+            top_row = ctk.CTkFrame(rep_card, fg_color="transparent")
+            top_row.pack(fill="x", padx=12, pady=10)
+
+            ctk.CTkLabel(top_row, text="✨ Rapport d'Expertise IA Approfondie", font=ctk.CTkFont(size=14, weight="bold"), text_color="#58a6ff").pack(side="left")
+
+            c_btn = ctk.CTkButton(
+                top_row,
+                text="📋 " + t.t("ai.copy_report"),
+                width=140,
+                height=28,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color="#21262d",
+                hover_color="#30363d",
+            )
+            c_btn.configure(command=lambda v=result["ai_report"], b=c_btn: self._copy_to_clipboard(v, b, t))
+            c_btn.pack(side="right")
+
+            text_box = ctk.CTkTextbox(rep_card, fg_color="#0d1117", text_color="#f0f6fc", font=ctk.CTkFont(size=13), wrap="word", height=380)
+            text_box.insert("1.0", result["ai_report"])
+            text_box.configure(state="disabled")
+            text_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+            # Regenerate button
+            ctk.CTkButton(
+                frame,
+                text="🔄 Régénérer l'analyse IA",
+                font=ctk.CTkFont(size=12),
+                fg_color="#21262d",
+                hover_color="#30363d",
+                command=lambda: self._generate_ai(tab, t, result, ai_cfg),
+            ).pack(anchor="w", padx=6, pady=4)
+
+        else:
+            # Prompt to generate or configure
+            info_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#30363d")
+            info_box.pack(fill="x", padx=4, pady=(0, 10))
+
+            i_inner = ctk.CTkFrame(info_box, fg_color="transparent")
+            i_inner.pack(fill="x", padx=16, pady=14)
+
+            ctk.CTkLabel(
+                i_inner,
+                text="🤖 " + (t.t("ai.not_configured_title") if not (ai_enabled and ai_key) else "Générer l'Analyse d'Expertise IA"),
+                font=ctk.CTkFont(size=15, weight="bold"),
+                text_color="#f0f6fc",
+            ).pack(anchor="w")
+
+            desc_text = t.t("ai.not_configured_desc") if not (ai_enabled and ai_key) else "Cliquez ci-dessous pour interroger l'Analyste IA qui va analyser l'ensemble des APIs Windows, commandes et hachages extraits pour générer une explication détaillée et vivante des capacités réelles de ce fichier."
+            ctk.CTkLabel(
+                i_inner,
+                text=desc_text,
+                font=ctk.CTkFont(size=12),
+                text_color="#8b949e",
+                wraplength=700,
+                justify="left",
+            ).pack(anchor="w", pady=(6, 12))
+
+            if ai_enabled and ai_key:
+                self.gen_btn = ctk.CTkButton(
+                    i_inner,
+                    text="✨ " + t.t("ai.generate_btn"),
+                    height=36,
+                    font=ctk.CTkFont(size=13, weight="bold"),
+                    fg_color="#1f6feb",
+                    hover_color="#1158c7",
+                    command=lambda: self._generate_ai(tab, t, result, ai_cfg),
+                )
+                self.gen_btn.pack(anchor="w")
+            else:
+                ctk.CTkLabel(
+                    i_inner,
+                    text="💡 Rendez-vous dans ⚙ Réglages ➔ Onglet 🤖 Analyste IA pour saisir votre clé API (OpenRouter, Google Gemini, OpenAI ou Anthropic).",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    text_color="#e3b341",
+                    wraplength=700,
+                    justify="left",
+                ).pack(anchor="w", pady=(0, 8))
+
+    def _generate_ai(self, tab, t, result, ai_cfg):
+        if self.ai_loading:
+            return
+        self.ai_loading = True
+
+        for child in tab.winfo_children():
+            child.destroy()
+
+        frame = self._scrollable(tab)
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+
+        section_header(frame, "🤖 Analyste Cybersécurité IA", "Génération en cours...")
+
+        load_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
+        load_card.pack(fill="x", padx=4, pady=(10, 10))
+
+        l_inner = ctk.CTkFrame(load_card, fg_color="transparent")
+        l_inner.pack(fill="x", padx=16, pady=20)
+
+        ctk.CTkLabel(l_inner, text="⏳ " + t.t("ai.loading"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#58a6ff").pack(anchor="w")
+
+        pbar = ctk.CTkProgressBar(l_inner, mode="indeterminate", progress_color="#1f6feb")
+        pbar.pack(fill="x", pady=(10, 4))
+        pbar.start()
+
+        def _worker():
+            try:
+                lang = self.config.get("language", "fr")
+                report = query_ai_analyst(result, ai_cfg, lang=lang)
+                result["ai_report"] = report
+                self.after(0, lambda: self._on_ai_done(tab, t, result))
+            except Exception as exc:
+                err_msg = str(exc)
+                self.after(0, lambda: self._on_ai_error(tab, t, result, err_msg, ai_cfg))
+            finally:
+                self.ai_loading = False
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_ai_done(self, tab, t, result):
+        self._fill_ai_report(tab, t, result)
+
+    def _on_ai_error(self, tab, t, result, err_msg, ai_cfg):
+        for child in tab.winfo_children():
+            child.destroy()
+        frame = self._scrollable(tab)
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+        section_header(frame, "🤖 Analyste Cybersécurité IA", "Erreur")
+        e_card = ctk.CTkFrame(frame, fg_color="#3c1116", corner_radius=8, border_width=1, border_color="#da3633")
+        e_card.pack(fill="x", padx=4, pady=10)
+        ctk.CTkLabel(e_card, text="❌ " + t.t("ai.error_title"), font=ctk.CTkFont(size=14, weight="bold"), text_color="#ff4d4f").pack(padx=16, pady=(12, 4), anchor="w")
+        ctk.CTkLabel(e_card, text=err_msg, font=ctk.CTkFont(size=12), text_color="#f85149", wraplength=700, justify="left").pack(padx=16, pady=(0, 12), anchor="w")
+        ctk.CTkButton(
+            frame,
+            text="🔄 Réessayer",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#1f6feb",
+            hover_color="#1158c7",
+            command=lambda: self._generate_ai(tab, t, result, ai_cfg),
+        ).pack(anchor="w", padx=6, pady=6)
 
     # --- 1. Summary Tab ---
     def _fill_summary(self, tab, t, result, all_findings, advice, threat_key):
@@ -299,170 +474,131 @@ class ResultView(ctk.CTkFrame):
             for r_key in risks:
                 ctk.CTkLabel(t_card, text=f"  • {t.t(r_key)}", font=ctk.CTkFont(size=12), text_color="#f0883e", wraplength=700, justify="left").pack(padx=16, pady=1, anchor="w")
 
-        # Recommended actions
+        # Actions list
         actions = advice.get("actions", [])
         if actions:
             ctk.CTkLabel(t_card, text="🛡️ " + t.t("execution.actions_title"), font=ctk.CTkFont(size=12, weight="bold"), text_color="#58a6ff").pack(padx=12, pady=(8, 2), anchor="w")
             for a_key in actions:
-                ctk.CTkLabel(t_card, text=f"  ✔ {t.t(a_key)}", font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=700, justify="left").pack(padx=16, pady=1, anchor="w")
-            ctk.CTkFrame(t_card, fg_color="transparent", height=6).pack()
+                ctk.CTkLabel(t_card, text=f"  ✓ {t.t(a_key)}", font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=700, justify="left").pack(padx=16, pady=1, anchor="w")
 
-        # Risk breakdown section
-        section_header(frame, "Décomposition du score de risque")
-        breakdown_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-        breakdown_box.pack(fill="x", padx=4, pady=(0, 8))
+        ctk.CTkFrame(t_card, height=6, fg_color="transparent").pack()
 
+        # Findings list
+        section_header(frame, t.t("tabs.findings"), f"{len(all_findings)} élément(s)")
+        if not all_findings:
+            ctk.CTkLabel(frame, text=t.t("misc.none"), font=ctk.CTkFont(size=12), text_color="#8b949e").pack(anchor="w", padx=8, pady=4)
+        else:
+            for f in all_findings:
+                finding_card(frame, t, f)
+
+        # Risk score breakdown
         breakdown = result.get("risk", {}).get("breakdown", [])
         if breakdown:
+            section_header(frame, "Décomposition du score de risque")
+            b_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            b_card.pack(fill="x", padx=4, pady=(0, 8))
             for item in breakdown:
-                pts = item.get("points", 0)
-                row = ctk.CTkFrame(breakdown_box, fg_color="transparent")
+                row = ctk.CTkFrame(b_card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=4)
-                ctk.CTkLabel(row, text=f"• {t.t(item['key'])}", font=ctk.CTkFont(size=13), text_color="#e6edf3").pack(side="left")
-                ctk.CTkLabel(row, text=f"+{pts} pts", font=ctk.CTkFont(size=13, weight="bold"), text_color="#f0883e").pack(side="right")
-        else:
-            ctk.CTkLabel(breakdown_box, text=t.t("find.none"), text_color="#3fb950", font=ctk.CTkFont(size=13)).pack(padx=12, pady=8, anchor="w")
-
-        # Findings section
-        section_header(frame, "Anomalies et indicateurs de menace détectés")
-        seen = set()
-        unique = []
-        for f in all_findings:
-            k = (f.get("code"), tuple(sorted((k, str(v)) for k, v in (f.get("params") or {}).items())))
-            if k not in seen:
-                seen.add(k)
-                unique.append(f)
-
-        if unique:
-            order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-            unique.sort(key=lambda x: order.get(x.get("severity", "info"), 9))
-            for f in unique:
-                finding_card(frame, t, f)
-        else:
-            good_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#238636")
-            good_box.pack(fill="x", padx=4, pady=4)
-            ctk.CTkLabel(good_box, text="✔ " + t.t("find.none"), font=ctk.CTkFont(size=13), text_color="#3fb950").pack(padx=12, pady=10, anchor="w")
+                ctk.CTkLabel(row, text=f"• {item.get('component', '?')}", font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(side="left")
+                pts = item.get("points", 0)
+                pts_color = "#f85149" if pts > 20 else ("#e3b341" if pts > 0 else "#3fb950")
+                ctk.CTkLabel(row, text=f"+{pts} pts", font=ctk.CTkFont(size=12, weight="bold"), text_color=pts_color).pack(side="right")
 
     # --- 2. Safety & Execution Tab ---
     def _fill_safety(self, tab, t, result, advice, threat_key):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        adv_status = advice.get("advice_status", "safe")
-        atheme = ADVICE_THEMES.get(adv_status, ADVICE_THEMES["safe"])
-        status_text = t.t(f"execution.status.{adv_status}")
+        verdict = result["risk"]["verdict"]
+        score = result["risk"]["score"]
+        atheme = ADVICE_THEMES.get(advice.get("advice_status", "safe" if verdict == "clean" else "danger"), ADVICE_THEMES["safe"])
 
-        section_header(frame, "Recommandation de Sécurité & Précautions d'Exécution")
+        section_header(frame, "🛡️ " + t.t("tabs.safety"), f"Score de risque : {score}/100")
 
-        decision_card = ctk.CTkFrame(frame, fg_color=atheme["bg"], corner_radius=8, border_width=1, border_color=atheme["border"])
-        decision_card.pack(fill="x", padx=4, pady=(0, 12))
-        d_inner = ctk.CTkFrame(decision_card, fg_color="transparent")
-        d_inner.pack(fill="x", padx=16, pady=12)
+        # Large Executive Guidance Card
+        g_card = ctk.CTkFrame(frame, fg_color=atheme["bg"], corner_radius=8, border_width=1, border_color=atheme["border"])
+        g_card.pack(fill="x", padx=4, pady=(0, 12))
 
-        ctk.CTkLabel(d_inner, text=f"{atheme['icon']}  {status_text}", font=ctk.CTkFont(size=16, weight="bold"), text_color=atheme["title_color"]).pack(anchor="w")
-        ctk.CTkLabel(d_inner, text=t.t(advice.get("title_key", "execution.safe_title")), font=ctk.CTkFont(size=13, weight="bold"), text_color="#f0f6fc").pack(anchor="w", pady=(6, 2))
-        ctk.CTkLabel(d_inner, text=t.t(advice.get("message_key", "execution.safe_message")), font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=720, justify="left").pack(anchor="w")
+        g_inner = ctk.CTkFrame(g_card, fg_color="transparent")
+        g_inner.pack(fill="x", padx=16, pady=12)
 
-        # Threat classification
-        threat_name = t.t(f"threat.type.{threat_key}")
-        threat_desc = t.t(f"threat.desc.{threat_key}")
-        threat_icon = THREAT_ICONS.get(threat_key, "🛡️")
+        ctk.CTkLabel(
+            g_inner,
+            text=f"{atheme['icon']} {t.t(advice.get('title_key', 'execution.safe_title'))}",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=atheme["title_color"],
+        ).pack(anchor="w")
 
-        section_header(frame, "Typologie détaillée du fichier analysé")
-        t_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-        t_box.pack(fill="x", padx=4, pady=(0, 12))
-        t_inner = ctk.CTkFrame(t_box, fg_color="transparent")
-        t_inner.pack(fill="x", padx=14, pady=10)
-        ctk.CTkLabel(t_inner, text=f"{threat_icon} {threat_name}", font=ctk.CTkFont(size=15, weight="bold"), text_color="#58a6ff").pack(anchor="w")
-        ctk.CTkLabel(t_inner, text=threat_desc, font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=720, justify="left").pack(anchor="w", pady=(4, 0))
+        ctk.CTkLabel(
+            g_inner,
+            text=t.t(advice.get('message_key', 'execution.safe_message')),
+            font=ctk.CTkFont(size=13),
+            text_color="#e6edf3",
+            wraplength=720,
+            justify="left",
+        ).pack(anchor="w", pady=(6, 4))
 
-        # Potential Computer Risks
+        # Risk breakdown details
         risks = advice.get("risks", [])
-        if risks:
-            section_header(frame, "Quels sont les risques concrets pour votre PC ?")
-            r_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            r_box.pack(fill="x", padx=4, pady=(0, 12))
-            r_inner = ctk.CTkFrame(r_box, fg_color="transparent")
-            r_inner.pack(fill="x", padx=14, pady=10)
+        if risks and threat_key != "clean":
+            section_header(frame, "⚠️ Risques potentiels pour votre ordinateur et vos données")
+            r_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            r_card.pack(fill="x", padx=4, pady=(0, 10))
             for r_key in risks:
-                r_col = "#f85149" if adv_status == "danger" else ("#e3b341" if adv_status == "caution" else "#3fb950")
-                ctk.CTkLabel(r_inner, text=f"• {t.t(r_key)}", font=ctk.CTkFont(size=13), text_color=r_col, wraplength=720, justify="left").pack(anchor="w", pady=3)
+                r_row = ctk.CTkFrame(r_card, fg_color="transparent")
+                r_row.pack(fill="x", padx=12, pady=6)
+                ctk.CTkLabel(r_row, text="❌", font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 8))
+                ctk.CTkLabel(r_row, text=t.t(r_key), font=ctk.CTkFont(size=12, weight="bold"), text_color="#fa8c16", wraplength=680, justify="left").pack(side="left")
 
-        # Protective Actions
+        # Action Recommendations
         actions = advice.get("actions", [])
         if actions:
-            section_header(frame, "Conduite à tenir & Actions recommandées")
-            a_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            a_box.pack(fill="x", padx=4, pady=(0, 12))
-            a_inner = ctk.CTkFrame(a_box, fg_color="transparent")
-            a_inner.pack(fill="x", padx=14, pady=10)
+            section_header(frame, "🛡️ Mesures de protection et actions recommandées")
+            a_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            a_card.pack(fill="x", padx=4, pady=(0, 10))
             for a_key in actions:
-                ctk.CTkLabel(a_inner, text=f"✔ {t.t(a_key)}", font=ctk.CTkFont(size=13), text_color="#e6edf3", wraplength=720, justify="left").pack(anchor="w", pady=3)
+                a_row = ctk.CTkFrame(a_card, fg_color="transparent")
+                a_row.pack(fill="x", padx=12, pady=6)
+                ctk.CTkLabel(a_row, text="✓", font=ctk.CTkFont(size=13, weight="bold"), text_color="#3fb950").pack(side="left", padx=(0, 8))
+                ctk.CTkLabel(a_row, text=t.t(a_key), font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=680, justify="left").pack(side="left")
 
     # --- 3. Identity & Hashes Tab ---
     def _fill_identity(self, tab, t, result):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        file_info = result.get("file", {})
+        f_info = result.get("file", {})
         identity = result.get("identity", {})
-        hashes_data = result.get("hashes", {})
+        hashes = result.get("hashes", {})
+
+        section_header(frame, "Identité du fichier & Système de fichiers")
+        id_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+        id_card.pack(fill="x", padx=4, pady=(0, 10))
+
+        self._kv_row(id_card, t.t("field.name"), f_info.get("name", "?"), t)
+        self._kv_row(id_card, t.t("field.path"), f_info.get("path", "?"), t, copyable=True)
+        self._kv_row(id_card, t.t("field.size"), f"{f_info.get('size_human', '?')} ({f_info.get('size', 0):,} octets)".replace(",", " "), t)
+        self._kv_row(id_card, t.t("field.type_declared"), identity.get("extension") or "?", t)
         real_type = identity.get("human_type") or identity.get("mime") or t.t("misc.unknown")
+        self._kv_row(id_card, t.t("field.type_real"), str(real_type), t)
+        self._kv_row(id_card, t.t("field.created"), f_info.get("created", "?"), t)
+        self._kv_row(id_card, t.t("field.modified"), f_info.get("modified", "?"), t)
+        self._kv_row(id_card, t.t("field.accessed"), f_info.get("accessed", "?"), t)
+        attrs = ", ".join(f_info.get("attributes", ["Normal"]))
+        self._kv_row(id_card, t.t("field.attributes"), attrs, t)
 
-        section_header(frame, "Informations générales sur le fichier")
-        grid1 = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-        grid1.pack(fill="x", padx=4, pady=(0, 10))
-        grid1.columnconfigure(1, weight=1)
+        section_header(frame, "Empreintes Cryptographiques (Hachages)")
+        h_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+        h_card.pack(fill="x", padx=4, pady=(0, 10))
 
-        general_rows = [
-            (t.t("field.name"), file_info.get("name", ""), None),
-            (t.t("field.path"), file_info.get("path", ""), file_info.get("path")),
-            (t.t("field.size"), f"{file_info.get('size_human', '')} ({file_info.get('size', 0)} octets)", None),
-            (t.t("field.type_declared"), identity.get("extension") or "?", None),
-            (t.t("field.type_real"), str(real_type), None),
-            (t.t("field.attributes"), ", ".join(file_info.get("attributes", ["Normal"])), None),
-            (t.t("field.created"), file_info.get("created", ""), None),
-            (t.t("field.modified"), file_info.get("modified", ""), None),
-            (t.t("field.accessed"), file_info.get("accessed", ""), None),
-        ]
-
-        for idx, (label, val, clip) in enumerate(general_rows):
-            bg = "#161b22" if idx % 2 == 0 else "#0d1117"
-            row = ctk.CTkFrame(grid1, fg_color=bg, corner_radius=0)
-            row.pack(fill="x", padx=1, pady=1)
-            row.columnconfigure(1, weight=1)
-            ctk.CTkLabel(row, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color="#8b949e", width=160, anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="w")
-            ctk.CTkLabel(row, text=val, font=ctk.CTkFont(size=12), text_color="#e6edf3", anchor="w", justify="left").grid(row=0, column=1, padx=6, pady=4, sticky="w")
-            if clip:
-                c_btn = ctk.CTkButton(row, text=t.t("misc.copy"), width=56, height=22, font=ctk.CTkFont(size=11), fg_color="#21262d", hover_color="#30363d")
-                c_btn.configure(command=lambda v=clip, b=c_btn: self._copy_to_clipboard(v, b, t))
-                c_btn.grid(row=0, column=2, padx=10, pady=4)
-
-        section_header(frame, "Empreintes cryptographiques & Hachages")
-        grid2 = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-        grid2.pack(fill="x", padx=4, pady=(0, 10))
-
-        hash_rows = [
-            (t.t("field.sha256"), hashes_data.get("sha256", "")),
-            (t.t("field.sha512"), hashes_data.get("sha512", "")),
-            (t.t("field.sha1"), hashes_data.get("sha1", "")),
-            (t.t("field.md5"), hashes_data.get("md5", "")),
-            (t.t("field.crc32"), hashes_data.get("crc32", "")),
-        ]
-        if hashes_data.get("imphash"):
-            hash_rows.append((t.t("field.imphash"), hashes_data["imphash"]))
-
-        for idx, (label, val) in enumerate(hash_rows):
-            bg = "#161b22" if idx % 2 == 0 else "#0d1117"
-            row = ctk.CTkFrame(grid2, fg_color=bg, corner_radius=0)
-            row.pack(fill="x", padx=1, pady=1)
-            row.columnconfigure(1, weight=1)
-            ctk.CTkLabel(row, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color="#8b949e", width=160, anchor="w").grid(row=0, column=0, padx=10, pady=5, sticky="w")
-            ctk.CTkLabel(row, text=val, font=ctk.CTkFont(family="Consolas", size=12), text_color="#58a6ff", anchor="w").grid(row=0, column=1, padx=6, pady=5, sticky="w")
-            if val:
-                c_btn = ctk.CTkButton(row, text=t.t("misc.copy"), width=56, height=22, font=ctk.CTkFont(size=11), fg_color="#21262d", hover_color="#30363d")
-                c_btn.configure(command=lambda v=val, b=c_btn: self._copy_to_clipboard(v, b, t))
-                c_btn.grid(row=0, column=2, padx=10, pady=5)
+        self._kv_row(h_card, "SHA-256", hashes.get("sha256", "?"), t, copyable=True, mono=True)
+        self._kv_row(h_card, "SHA-512", hashes.get("sha512", "?"), t, copyable=True, mono=True)
+        self._kv_row(h_card, "SHA-1", hashes.get("sha1", "?"), t, copyable=True, mono=True)
+        self._kv_row(h_card, "MD5", hashes.get("md5", "?"), t, copyable=True, mono=True)
+        self._kv_row(h_card, "CRC32", hashes.get("crc32", "?"), t, copyable=True, mono=True)
+        if hashes.get("imphash"):
+            self._kv_row(h_card, "Imphash", hashes["imphash"], t, copyable=True, mono=True)
 
     # --- 4. PE Structure Tab ---
     def _fill_pe(self, tab, t, result):
@@ -470,143 +606,110 @@ class ResultView(ctk.CTkFrame):
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
         pe = result.get("pe", {})
-        if not pe.get("applicable"):
-            ctk.CTkLabel(frame, text=t.t("pe.not_pe"), font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=10, pady=20)
-            return
-
-        if not pe.get("parsed"):
-            finding_card(frame, t, {"code": "pe.parse_failed", "severity": "medium", "params": {}})
+        if not pe.get("applicable") or not pe.get("parsed"):
+            ctk.CTkLabel(frame, text=t.t("pe.not_pe"), font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
             return
 
         info = pe.get("info", {})
+        sec_flags = info.get("security_flags", {})
 
-        section_header(frame, "En-têtes et architecture PE")
-        pe_grid = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-        pe_grid.pack(fill="x", padx=4, pady=(0, 10))
+        # Header Info
+        section_header(frame, "En-tête & Propriétés Générales")
+        h_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+        h_card.pack(fill="x", padx=4, pady=(0, 10))
+        self._kv_row(h_card, t.t("field.architecture"), info.get("architecture", "?"), t)
+        self._kv_row(h_card, t.t("field.subsystem"), info.get("subsystem", "?"), t)
+        self._kv_row(h_card, t.t("field.compile_time"), info.get("compile_time", "?"), t)
+        self._kv_row(h_card, t.t("field.entry_point"), hex(info.get("entry_point", 0)) if info.get("entry_point") else "?", t, mono=True)
+        self._kv_row(h_card, t.t("field.image_base"), hex(info.get("image_base", 0)) if info.get("image_base") else "?", t, mono=True)
+        if info.get("debug_path"):
+            self._kv_row(h_card, t.t("field.pdb_path"), info["debug_path"], t, copyable=True, mono=True)
 
-        pe_fields = [
-            (t.t("pe_info.machine"), info.get("machine", "N/A")),
-            (t.t("pe_info.subsystem"), info.get("subsystem", "N/A")),
-            (t.t("pe_info.signed"), t.t("misc.yes") if info.get("is_signed") else t.t("misc.no")),
-            (t.t("pe_info.dotnet"), t.t("misc.yes") if info.get("is_dotnet") else t.t("misc.no")),
-            (t.t("pe_info.entry_point"), info.get("entry_point", "N/A")),
-            (t.t("pe_info.image_base"), info.get("image_base", "N/A")),
-            (t.t("pe_info.timestamp"), info.get("compiled") or "Inconnu"),
-        ]
-        if info.get("pdb_path"):
-            pe_fields.append((t.t("pe_info.pdb"), info["pdb_path"]))
+        # Digital Signature
+        sig_color = "#3fb950" if sec_flags.get("has_digital_signature") else "#8b949e"
+        sig_text = "Oui (Présente)" if sec_flags.get("has_digital_signature") else "Non signée"
+        self._kv_row(h_card, t.t("field.signature"), sig_text, t, custom_color=sig_color)
 
-        for idx, (label, val) in enumerate(pe_fields):
-            bg = "#161b22" if idx % 2 == 0 else "#0d1117"
-            row = ctk.CTkFrame(pe_grid, fg_color=bg, corner_radius=0)
-            row.pack(fill="x", padx=1, pady=1)
-            row.columnconfigure(1, weight=1)
-            ctk.CTkLabel(row, text=label, font=ctk.CTkFont(size=12, weight="bold"), text_color="#8b949e", width=180, anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="w")
-            val_col = "#3fb950" if val in (t.t("misc.yes"),) else ("#f85149" if val in (t.t("misc.no"),) and label == t.t("pe_info.signed") else "#e6edf3")
-            ctk.CTkLabel(row, text=val, font=ctk.CTkFont(size=12), text_color=val_col, anchor="w").grid(row=0, column=1, padx=6, pady=4, sticky="w")
+        # MITRE APIs
+        mitre = info.get("mitre_apis", {})
+        if any(mitre.values()):
+            section_header(frame, "Catégorisation des APIs Windows (MITRE ATT&CK)")
+            m_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            m_card.pack(fill="x", padx=4, pady=(0, 10))
+            labels = {
+                "injection": ("Injection de code / Mémoire", "#f85149"),
+                "persistence": ("Persistance (Registre / Services)", "#fa8c16"),
+                "network": ("Connexions réseau / Téléchargement", "#58a6ff"),
+                "execution": ("Exécution de processus", "#e5b810"),
+                "hooking": ("Interception de frappes / Messages (Hooking)", "#f85149"),
+                "antidebug": ("Anti-Débogage / Évasion", "#e5b810"),
+                "crypto": ("Chiffrement / Hachage", "#8b949e"),
+            }
+            for cat, apis in mitre.items():
+                if apis:
+                    clabel, ccolor = labels.get(cat, (cat.title(), "#e6edf3"))
+                    crow = ctk.CTkFrame(m_card, fg_color="transparent")
+                    crow.pack(fill="x", padx=12, pady=4)
+                    ctk.CTkLabel(crow, text=f"• {clabel} :", font=ctk.CTkFont(size=12, weight="bold"), text_color=ccolor).pack(anchor="w")
+                    ctk.CTkLabel(crow, text="   " + ", ".join(apis[:8]) + (f" (+{len(apis)-8} autres)" if len(apis) > 8 else ""), font=ctk.CTkFont(family="Consolas", size=11), text_color="#8b949e").pack(anchor="w")
 
-        v_info = info.get("version_info", {})
-        if v_info:
-            section_header(frame, t.t("pe_info.version"))
-            v_grid = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            v_grid.pack(fill="x", padx=4, pady=(0, 10))
-            for idx, (k, v) in enumerate(v_info.items()):
-                bg = "#161b22" if idx % 2 == 0 else "#0d1117"
-                row = ctk.CTkFrame(v_grid, fg_color=bg, corner_radius=0)
-                row.pack(fill="x", padx=1, pady=1)
-                row.columnconfigure(1, weight=1)
-                ctk.CTkLabel(row, text=k, font=ctk.CTkFont(size=12, weight="bold"), text_color="#8b949e", width=180, anchor="w").grid(row=0, column=0, padx=10, pady=4, sticky="w")
-                ctk.CTkLabel(row, text=str(v), font=ctk.CTkFont(size=12), text_color="#e6edf3", anchor="w").grid(row=0, column=1, padx=6, pady=4, sticky="w")
-
+        # Sections table
         sections = info.get("sections", [])
         if sections:
-            section_header(frame, f"{t.t('pe_info.sections')} ({len(sections)})")
-            s_grid = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            s_grid.pack(fill="x", padx=4, pady=(0, 10))
-            
-            h_row = ctk.CTkFrame(s_grid, fg_color="#21262d", corner_radius=0)
-            h_row.pack(fill="x", padx=1, pady=1)
-            h_row.columnconfigure((0, 1, 2, 3, 4), weight=2)
-            ctk.CTkLabel(h_row, text="Nom", font=ctk.CTkFont(size=11, weight="bold"), text_color="#8b949e").grid(row=0, column=0, padx=8, pady=4, sticky="w")
-            ctk.CTkLabel(h_row, text="Taille disque", font=ctk.CTkFont(size=11, weight="bold"), text_color="#8b949e").grid(row=0, column=1, padx=8, pady=4, sticky="w")
-            ctk.CTkLabel(h_row, text="Taille mémoire", font=ctk.CTkFont(size=11, weight="bold"), text_color="#8b949e").grid(row=0, column=2, padx=8, pady=4, sticky="w")
-            ctk.CTkLabel(h_row, text="Entropie", font=ctk.CTkFont(size=11, weight="bold"), text_color="#8b949e").grid(row=0, column=3, padx=8, pady=4, sticky="w")
-            ctk.CTkLabel(h_row, text="Flags", font=ctk.CTkFont(size=11, weight="bold"), text_color="#8b949e").grid(row=0, column=4, padx=8, pady=4, sticky="w")
-
-            for idx, s in enumerate(sections):
-                bg = "#161b22" if idx % 2 == 0 else "#0d1117"
-                s_row = ctk.CTkFrame(s_grid, fg_color=bg, corner_radius=0)
-                s_row.pack(fill="x", padx=1, pady=1)
-                s_row.columnconfigure((0, 1, 2, 3, 4), weight=2)
-                ent_color = "#f85149" if s["entropy"] > 7.0 else ("#d29922" if s["entropy"] > 6.2 else "#e6edf3")
-                flag_color = "#f85149" if "W" in s["flags"] and "X" in s["flags"] else "#e6edf3"
-                ctk.CTkLabel(s_row, text=s["name"], font=ctk.CTkFont(size=12, weight="bold"), text_color="#58a6ff").grid(row=0, column=0, padx=8, pady=3, sticky="w")
-                ctk.CTkLabel(s_row, text=f"{s['size']:,} o", font=ctk.CTkFont(size=12), text_color="#e6edf3").grid(row=0, column=1, padx=8, pady=3, sticky="w")
-                ctk.CTkLabel(s_row, text=f"{s.get('virtual_size', 0):,} o", font=ctk.CTkFont(size=12), text_color="#8b949e").grid(row=0, column=2, padx=8, pady=3, sticky="w")
-                ctk.CTkLabel(s_row, text=f"{s['entropy']:.2f} / 8", font=ctk.CTkFont(size=12), text_color=ent_color).grid(row=0, column=3, padx=8, pady=3, sticky="w")
-                ctk.CTkLabel(s_row, text=s["flags"] or "-", font=ctk.CTkFont(size=12, weight="bold"), text_color=flag_color).grid(row=0, column=4, padx=8, pady=3, sticky="w")
-
-        mitre_apis = info.get("mitre_apis", {})
-        if mitre_apis:
-            section_header(frame, t.t("pe_info.mitre_title"))
-            m_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            m_box.pack(fill="x", padx=4, pady=(0, 10))
-            for cat, apis in mitre_apis.items():
-                c_frame = ctk.CTkFrame(m_box, fg_color="#161b22", corner_radius=4, border_width=1, border_color="#30363d")
-                c_frame.pack(fill="x", padx=8, pady=4)
-                ctk.CTkLabel(c_frame, text=f"🏷️ {cat.upper()}", font=ctk.CTkFont(size=11, weight="bold"), text_color="#fa8c16").pack(anchor="w", padx=8, pady=(4, 2))
-                ctk.CTkLabel(c_frame, text=", ".join(apis), font=ctk.CTkFont(family="Consolas", size=12), text_color="#e6edf3", wraplength=680, justify="left").pack(anchor="w", padx=8, pady=(0, 4))
-
-        exports = info.get("exports", [])
-        if exports:
-            section_header(frame, f"{t.t('pe_info.exports')} ({len(exports)})")
-            exp_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            exp_box.pack(fill="x", padx=4, pady=(0, 10))
-            exp_text = ", ".join([e["name"] for e in exports[:40]])
-            if len(exports) > 40:
-                exp_text += f" ... (+{len(exports) - 40} autres)"
-            ctk.CTkLabel(exp_box, text=exp_text, font=ctk.CTkFont(family="Consolas", size=12), text_color="#58a6ff", wraplength=700, justify="left").pack(padx=10, pady=8, anchor="w")
+            section_header(frame, t.t("pe.sections"), f"{len(sections)} sections")
+            s_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            s_card.pack(fill="x", padx=4, pady=(0, 10))
+            for s in sections:
+                srow = ctk.CTkFrame(s_card, fg_color="transparent")
+                srow.pack(fill="x", padx=12, pady=3)
+                sname = s.get("name", "?")
+                sent = s.get("entropy", 0.0)
+                sz = s.get("virtual_size", 0)
+                is_wx = s.get("is_writable") and s.get("is_executable")
+                badge_txt = " [W+X]" if is_wx else ""
+                col = "#f85149" if is_wx or sent > 7.2 else "#e6edf3"
+                ctk.CTkLabel(srow, text=f"{sname:8s} | Entropie: {sent:.2f} | Taille: {sz:,} o{badge_txt}", font=ctk.CTkFont(family="Consolas", size=12), text_color=col).pack(side="left")
 
     # --- 5. Entropy & Blocks Tab ---
     def _fill_entropy(self, tab, t, result):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        ent_data = result.get("entropy", {})
-        glob_ent = ent_data.get("global")
-        level = ent_data.get("level", "normal")
-        blocks = ent_data.get("blocks", {})
+        entropy_data = result.get("entropy", {})
+        g_ent = entropy_data.get("global", 0.0)
+        blocks_data = entropy_data.get("blocks", {})
 
-        section_header(frame, t.t("entropy_tab.title"))
+        section_header(frame, "Entropie Globale de Shannon")
         e_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
         e_card.pack(fill="x", padx=4, pady=(0, 10))
 
-        if glob_ent is not None:
-            ctk.CTkLabel(e_card, text=f"Entropie globale : {glob_ent:.3f} / 8.00 ({level.upper()})", font=ctk.CTkFont(size=14, weight="bold"), text_color="#bc8cff").pack(anchor="w", padx=12, pady=(10, 4))
-            
-            if blocks.get("total_blocks"):
-                ctk.CTkLabel(e_card, text=f"• Blocs analysés (16 Ko) : {blocks['total_blocks']}", font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(anchor="w", padx=12, pady=2)
-                ctk.CTkLabel(e_card, text=f"• Entropie minimale : {blocks['min']:.2f}  |  Maximale : {blocks['max']:.2f}  |  Moyenne : {blocks['avg']:.2f}", font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(anchor="w", padx=12, pady=2)
-                ctk.CTkLabel(e_card, text=f"• Blocs hautement chiffrés / packés (> 7.2) : {blocks['high_count']} sur {blocks['total_blocks']}", font=ctk.CTkFont(size=12), text_color="#f85149" if blocks['high_count'] else "#3fb950").pack(anchor="w", padx=12, pady=(2, 10))
+        e_row = ctk.CTkFrame(e_card, fg_color="transparent")
+        e_row.pack(fill="x", padx=12, pady=10)
+        ctk.CTkLabel(e_row, text=f"Entropie : {g_ent:.3f} / 8.000", font=ctk.CTkFont(size=16, weight="bold"), text_color="#f0f6fc").pack(side="left")
 
-                samples = blocks.get("samples", [])
-                if samples:
-                    section_header(frame, "Distribution visuelle de l'entropie par bloc")
-                    map_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-                    map_box.pack(fill="x", padx=4, pady=(0, 10))
-                    grid_bar = ctk.CTkFrame(map_box, fg_color="transparent")
-                    grid_bar.pack(fill="x", padx=12, pady=10)
-                    for idx, val in enumerate(samples):
-                        if val > 7.2:
-                            color = "#da3633"
-                        elif val > 6.0:
-                            color = "#d29922"
-                        elif val > 4.0:
-                            color = "#1f6feb"
-                        else:
-                            color = "#238636"
-                        b_elem = ctk.CTkFrame(grid_bar, fg_color=color, width=18, height=36, corner_radius=3)
-                        b_elem.pack(side="left", padx=1, pady=2)
+        bar = ctk.CTkProgressBar(e_card, height=10)
+        bar.set((g_ent or 0.0) / 8.0)
+        bar.configure(progress_color="#f85149" if g_ent > 7.2 else ("#e3b341" if g_ent > 6.5 else "#3fb950"), fg_color="#21262d")
+        bar.pack(fill="x", padx=12, pady=(0, 12))
+
+        # Block entropy breakdown
+        if blocks_data and blocks_data.get("samples"):
+            section_header(frame, "Analyse d'Entropie par Blocs (16 Ko)", f"{blocks_data.get('total_blocks', 0)} blocs")
+            b_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            b_card.pack(fill="x", padx=4, pady=(0, 10))
+
+            b_stats = ctk.CTkFrame(b_card, fg_color="transparent")
+            b_stats.pack(fill="x", padx=12, pady=8)
+            ctk.CTkLabel(b_stats, text=f"Min: {blocks_data.get('min', 0)} | Max: {blocks_data.get('max', 0)} | Moyenne: {blocks_data.get('avg', 0)} | Blocs très élevés (>7.2): {blocks_data.get('high_count', 0)}", font=ctk.CTkFont(size=12), text_color="#8b949e").pack(side="left")
+
+            # Samples preview bar
+            samples = blocks_data.get("samples", [])
+            s_frame = ctk.CTkFrame(b_card, fg_color="transparent")
+            s_frame.pack(fill="x", padx=12, pady=(0, 12))
+            for i, val in enumerate(samples):
+                bcol = "#f85149" if val > 7.2 else ("#e3b341" if val > 6.5 else "#3fb950")
+                col_box = ctk.CTkFrame(s_frame, width=16, height=36, fg_color=bcol, corner_radius=2)
+                col_box.pack(side="left", padx=1)
 
     # --- 6. Strings & IOCs Tab ---
     def _fill_strings(self, tab, t, result):
@@ -616,61 +719,60 @@ class ResultView(ctk.CTkFrame):
         strings = result.get("strings", {})
         total = strings.get("total_strings", 0)
 
-        section_header(frame, t.t("strings_tab.title"), subtitle=f"{total} chaînes extraites")
+        section_header(frame, "Indicateurs de Compromission (IOCs) & Chaînes", f"{total} chaînes scannées")
 
-        categories = [
-            ("ransom", "🚨 Indicateurs de Ransomware / Tor", strings.get("ransom", []), "#f85149"),
-            ("commands", "⚙️ Commandes système & Processus", strings.get("commands", []), "#fa8c16"),
-            ("urls", "🌐 URLs & Domaines Web", strings.get("urls", []), "#58a6ff"),
-            ("ips", "📡 Adresses IP extraites", strings.get("ips", []), "#40a9ff"),
-            ("registry", "🔑 Clés de Registre / Persistance", strings.get("registry", []), "#d29922"),
+        cats = [
+            ("Ransomware & Mots-clés de rançon", strings.get("ransom", []), "#f85149"),
+            ("Commandes suspectes (PowerShell / CMD / Reg)", strings.get("commands", []), "#fa8c16"),
+            ("URLs & Adresses web", strings.get("urls", []), "#58a6ff"),
+            ("Adresses IP", strings.get("ips", []), "#58a6ff"),
+            ("Clés de Registre Windows", strings.get("registry", []), "#e5b810"),
         ]
 
-        has_any = False
-        for cat_id, cat_title, items, col in categories:
+        found_any = False
+        for title, items, color in cats:
             if items:
-                has_any = True
-                section_header(frame, f"{cat_title} ({len(items)})")
-                box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-                box.pack(fill="x", padx=4, pady=(0, 8))
-                for it in items:
-                    row = ctk.CTkFrame(box, fg_color="transparent")
-                    row.pack(fill="x", padx=10, pady=2)
-                    ctk.CTkLabel(row, text=f"• {it}", font=ctk.CTkFont(family="Consolas", size=12), text_color=col, anchor="w", justify="left", wraplength=640).pack(side="left", fill="x", expand=True)
-                    c_btn = ctk.CTkButton(row, text=t.t("misc.copy"), width=50, height=20, font=ctk.CTkFont(size=10), fg_color="#21262d", hover_color="#30363d")
-                    c_btn.configure(command=lambda v=it, b=c_btn: self._copy_to_clipboard(v, b, t))
-                    c_btn.pack(side="right", padx=(6, 0))
+                found_any = True
+                section_header(frame, title, f"{len(items)} trouvée(s)")
+                card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+                card.pack(fill="x", padx=4, pady=(0, 8))
+                for item in items:
+                    irow = ctk.CTkFrame(card, fg_color="transparent")
+                    irow.pack(fill="x", padx=10, pady=2)
+                    ctk.CTkLabel(irow, text=f"• {item}", font=ctk.CTkFont(family="Consolas", size=11), text_color=color, wraplength=680, justify="left").pack(side="left")
+                    c_btn = ctk.CTkButton(irow, text=t.t("misc.copy"), width=50, height=20, font=ctk.CTkFont(size=10), fg_color="#21262d", hover_color="#30363d")
+                    c_btn.configure(command=lambda v=item, b=c_btn: self._copy_to_clipboard(v, b, t))
+                    c_btn.pack(side="right")
 
-        if not has_any:
-            no_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#238636")
-            no_box.pack(fill="x", padx=4, pady=10)
-            ctk.CTkLabel(no_box, text="✔ " + t.t("strings_tab.none"), font=ctk.CTkFont(size=13), text_color="#3fb950").pack(padx=12, pady=12, anchor="w")
+        if not found_any:
+            ctk.CTkLabel(frame, text="Aucun IOC ou commande suspecte détectée dans les chaînes.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
 
     # --- 7. YARA Tab ---
     def _fill_yara(self, tab, t, result):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        yara_res = result.get("yara", {})
-        if not yara_res.get("available"):
-            ctk.CTkLabel(frame, text=t.t("yara.disabled"), font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=10, pady=20)
+        yara = result.get("yara", {})
+        available = yara.get("available", False)
+        matches = yara.get("matches", [])
+
+        section_header(frame, t.t("tabs.yara"), f"{len(matches)} règle(s) déclenchée(s)")
+
+        if not available:
+            ctk.CTkLabel(frame, text="Le moteur YARA est désactivé ou indisponible.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
             return
 
-        count_text = t.t("yara.rules_count", count=yara_res.get("rules_count", 0), files=yara_res.get("rules_files", 0))
-        section_header(frame, "Signatures YARA chargées", subtitle=count_text)
-
-        matches = yara_res.get("matches", [])
-        if matches:
-            for match in matches:
-                finding_card(frame, t, {
-                    "code": "yara.match",
-                    "severity": match["severity"],
-                    "params": {"rule": match["rule"], "desc": match["description"]},
-                })
+        if not matches:
+            ctk.CTkLabel(frame, text="Aucune signature de malware YARA détectée dans ce fichier.", font=ctk.CTkFont(size=13), text_color="#3fb950").pack(padx=12, pady=16, anchor="w")
         else:
-            good_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#238636")
-            good_box.pack(fill="x", padx=4, pady=10)
-            ctk.CTkLabel(good_box, text="✔ " + t.t("yara.none"), font=ctk.CTkFont(size=13), text_color="#3fb950").pack(padx=12, pady=12, anchor="w")
+            for m in matches:
+                m_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#da3633")
+                m_card.pack(fill="x", padx=4, pady=3)
+                m_inner = ctk.CTkFrame(m_card, fg_color="transparent")
+                m_inner.pack(fill="x", padx=10, pady=8)
+                ctk.CTkLabel(m_inner, text=f"🔴 Règle : {m.get('rule')}", font=ctk.CTkFont(size=13, weight="bold"), text_color="#f85149").pack(anchor="w")
+                if m.get("description"):
+                    ctk.CTkLabel(m_inner, text=m["description"], font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(anchor="w", pady=(2, 0))
 
     # --- 8. VirusTotal Tab ---
     def _fill_vt(self, tab, t, result):
@@ -678,61 +780,57 @@ class ResultView(ctk.CTkFrame):
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
         vt = result.get("virustotal", {})
-        status = vt.get("status")
+        status = vt.get("status", "disabled")
 
-        section_header(frame, "Service de réputation VirusTotal (Hash-only)")
-        note_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#1f6feb")
-        note_box.pack(fill="x", padx=4, pady=(0, 10))
-        ctk.CTkLabel(note_box, text="🔒 " + t.t("vt.enabled_note"), font=ctk.CTkFont(size=12), text_color="#58a6ff", wraplength=720, justify="left").pack(padx=12, pady=8, anchor="w")
+        section_header(frame, "Réputation VirusTotal (Lookup SHA-256)")
 
         if status == "disabled":
-            ctk.CTkLabel(frame, text=t.t("vt.disabled"), font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=10, pady=10)
-            return
-        if status == "not_found":
-            ctk.CTkLabel(frame, text=t.t("vt.not_found"), font=ctk.CTkFont(size=13), text_color="#d29922").pack(padx=10, pady=10)
-            return
-        if status.startswith("error_"):
-            ctk.CTkLabel(frame, text=t.t(f"vt.{status}"), font=ctk.CTkFont(size=13), text_color="#f85149").pack(padx=10, pady=10)
-            return
-
-        if status == "found":
-            malicious = vt.get("malicious", 0)
-            total = vt.get("total_engines", 0)
-            ratio = round(100 * malicious / total) if total else 0
-            
-            res_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#da3633" if malicious else "#238636")
-            res_box.pack(fill="x", padx=4, pady=(0, 10))
-            
-            summary = t.t("vt.found", malicious=malicious, total=total) if malicious else t.t("vt.found_none", total=total)
-            ctk.CTkLabel(res_box, text=summary, font=ctk.CTkFont(size=15, weight="bold"), text_color="#f85149" if malicious else "#3fb950").pack(padx=12, pady=(10, 2), anchor="w")
-            ctk.CTkLabel(res_box, text=t.t("vt.ratio", ratio=ratio), font=ctk.CTkFont(size=12), text_color="#8b949e").pack(padx=12, pady=(0, 10), anchor="w")
-
-            flagged = vt.get("flagged_by", [])
-            if flagged:
-                section_header(frame, t.t("vt.flagged_by"))
-                f_box = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-                f_box.pack(fill="x", padx=4, pady=(0, 10))
-                for eng in flagged:
-                    r = ctk.CTkFrame(f_box, fg_color="transparent")
-                    r.pack(fill="x", padx=10, pady=2)
-                    ctk.CTkLabel(r, text=f"• {eng['engine']}", font=ctk.CTkFont(size=12, weight="bold"), text_color="#e6edf3").pack(side="left")
-                    ctk.CTkLabel(r, text=eng['result'], font=ctk.CTkFont(family="Consolas", size=12), text_color="#f85149").pack(side="right")
-
-            permalink = vt.get("permalink")
-            if permalink:
-                ctk.CTkButton(frame, text="🌐 " + t.t("vt.open_link"), fg_color="#1f6feb", hover_color="#1158c7", command=lambda: self._open(permalink)).pack(anchor="w", padx=6, pady=10)
-
-    def _open(self, url):
-        import webbrowser
-        webbrowser.open(url)
+            ctk.CTkLabel(frame, text="La vérification VirusTotal est désactivée. Vous pouvez l'activer dans les Réglages ⚙ avec votre clé API gratuite.", font=ctk.CTkFont(size=13), text_color="#8b949e", wraplength=700, justify="left").pack(padx=12, pady=16, anchor="w")
+        elif status == "not_found":
+            ctk.CTkLabel(frame, text="Ce fichier (empreinte SHA-256) n'a jamais été soumis à VirusTotal.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
+        elif status == "found":
+            mal = vt.get("malicious", 0)
+            tot = vt.get("total", 0)
+            col = "#f85149" if mal > 0 else "#3fb950"
+            vt_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+            vt_card.pack(fill="x", padx=4, pady=8)
+            v_inner = ctk.CTkFrame(vt_card, fg_color="transparent")
+            v_inner.pack(fill="x", padx=12, pady=10)
+            ctk.CTkLabel(v_inner, text=f"Détections antivirus : {mal} / {tot}", font=ctk.CTkFont(size=16, weight="bold"), text_color=col).pack(anchor="w")
+        else:
+            ctk.CTkLabel(frame, text=f"Statut VirusTotal : {status}", font=ctk.CTkFont(size=13), text_color="#e3b341").pack(padx=12, pady=16, anchor="w")
 
     # --- 9. Privacy Tab ---
     def _fill_privacy(self, tab, t):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        section_header(frame, "Engagement de Confidentialité & Analyse 100% Locale")
-        for key, icon in [("line1", "🔒"), ("line2", "🛡️"), ("telemetry", "✨")]:
-            p_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
-            p_card.pack(fill="x", padx=4, pady=4)
-            ctk.CTkLabel(p_card, text=f"{icon} {t.t(f'privacy.{key}')}", font=ctk.CTkFont(size=13), text_color="#e6edf3", wraplength=700, justify="left").pack(padx=14, pady=10, anchor="w")
+        section_header(frame, "Garantie de Confidentialité & Vie Privée")
+        p_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+        p_card.pack(fill="x", padx=4, pady=8)
+
+        p_inner = ctk.CTkFrame(p_card, fg_color="transparent")
+        p_inner.pack(fill="x", padx=14, pady=12)
+
+        items = [
+            ("🔒 Analyse 100% Locale", "Tous les calculs (hachages, PE, chaînes, entropie, YARA) sont exécutés localement sur votre processeur."),
+            ("🚫 Aucun Fichier Téléversé", "Le contenu de vos fichiers personnels ne quitte jamais votre ordinateur."),
+            ("🌐 VirusTotal Sécurisé", "Si activé, seule l'empreinte SHA-256 (64 caractères) est envoyée pour vérifier sa réputation."),
+            ("🤖 Analyste IA Privé", "Seules les métadonnées techniques abstraites (noms de fonctions, score) sont envoyées à l'IA."),
+            ("⚡ Aucune Télémétrie", "MalyxScanner ne collecte aucun journal d'activité ni statistique d'usage."),
+        ]
+        for title, desc in items:
+            ctk.CTkLabel(p_inner, text=title, font=ctk.CTkFont(size=13, weight="bold"), text_color="#3fb950").pack(anchor="w", pady=(4, 0))
+            ctk.CTkLabel(p_inner, text=desc, font=ctk.CTkFont(size=12), text_color="#8b949e", wraplength=700, justify="left").pack(anchor="w", pady=(0, 6))
+
+    def _kv_row(self, parent, key, val, t, copyable=False, mono=False, custom_color=None):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", padx=12, pady=4)
+        ctk.CTkLabel(row, text=key + " :", font=ctk.CTkFont(size=12, weight="bold"), text_color="#8b949e", width=180, anchor="w").pack(side="left")
+        font_family = "Consolas" if mono else "Segoe UI"
+        text_col = custom_color or "#f0f6fc"
+        ctk.CTkLabel(row, text=str(val), font=ctk.CTkFont(family=font_family, size=12), text_color=text_col, wraplength=480, justify="left").pack(side="left", fill="x", expand=True)
+        if copyable and str(val) not in ("?", "", "None"):
+            c_btn = ctk.CTkButton(row, text=t.t("misc.copy"), width=55, height=22, font=ctk.CTkFont(size=11), fg_color="#21262d", hover_color="#30363d")
+            c_btn.configure(command=lambda v=str(val), b=c_btn: self._copy_to_clipboard(v, b, t))
+            c_btn.pack(side="right")

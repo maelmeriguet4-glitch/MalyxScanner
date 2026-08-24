@@ -262,6 +262,19 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("entropy", res)
         self.assertIn("blocks", res["entropy"])
 
+    def test_ai_analyst_prompt_and_payload(self):
+        from core.ai_analyst import build_system_prompt, build_user_payload
+        sys_fr = build_system_prompt("fr")
+        sys_en = build_system_prompt("en")
+        self.assertIn("Cybersécurité", sys_fr)
+        self.assertIn("Cybersecurity", sys_en)
+
+        res = self.analyze(self.txt_path)
+        payload_fr = build_user_payload(res, "fr")
+        self.assertIn("sha256", payload_fr)
+        self.assertIn("risk_verdict", payload_fr)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
