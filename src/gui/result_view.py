@@ -295,7 +295,10 @@ class ResultView(ctk.CTkFrame):
         frame = self._scrollable(tab)
         frame.pack(fill="both", expand=True, padx=4, pady=4)
 
-        ai_cfg = self.config.get("ai_analyst", {})
+        from app_config import load_config
+        live_cfg = load_config()
+        self.config = live_cfg
+        ai_cfg = live_cfg.get("ai_analyst", {})
         ai_enabled = bool(ai_cfg.get("enabled"))
         ai_key = ai_cfg.get("api_key", "").strip()
         provider = ai_cfg.get("provider", "openrouter")
@@ -303,7 +306,7 @@ class ResultView(ctk.CTkFrame):
 
         section_header(frame, "🤖 Analyste Cybersécurité IA", f"{provider.upper()} ({model or 'Défaut'})")
 
-        if result.get("ai_report"):
+        if result.get("ai_report") and result["ai_report"].strip():
             # Display Report
             rep_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#1f6feb")
             rep_card.pack(fill="both", expand=True, padx=4, pady=(0, 10))
@@ -311,7 +314,7 @@ class ResultView(ctk.CTkFrame):
             top_row = ctk.CTkFrame(rep_card, fg_color="transparent")
             top_row.pack(fill="x", padx=12, pady=10)
 
-            ctk.CTkLabel(top_row, text="✨ Rapport d'Expertise IA Approfondie", font=ctk.CTkFont(size=14, weight="bold"), text_color="#58a6ff").pack(side="left")
+            ctk.CTkLabel(top_row, text="✨ Rapport d'Expertise IA", font=ctk.CTkFont(size=14, weight="bold"), text_color="#58a6ff").pack(side="left")
 
             c_btn = ctk.CTkButton(
                 top_row,
@@ -325,7 +328,7 @@ class ResultView(ctk.CTkFrame):
             c_btn.configure(command=lambda v=result["ai_report"], b=c_btn: self._copy_to_clipboard(v, b, t))
             c_btn.pack(side="right")
 
-            text_box = ctk.CTkTextbox(rep_card, fg_color="#0d1117", text_color="#f0f6fc", font=ctk.CTkFont(size=13), wrap="word", height=380)
+            text_box = ctk.CTkTextbox(rep_card, fg_color="#0d1117", text_color="#f0f6fc", font=ctk.CTkFont(size=13), wrap="word", height=420)
             text_box.insert("1.0", result["ai_report"])
             text_box.configure(state="disabled")
             text_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
@@ -363,7 +366,7 @@ class ResultView(ctk.CTkFrame):
                         "  2. Activez le module et choisissez un fournisseur\n"
                         "  3. Entrez votre clé API (OpenRouter recommandé — modèles gratuits disponibles)\n"
                         "  4. Enregistrez les réglages et revenez ici\n\n"
-                        "💡 OpenRouter gratuit : openrouter.ai/keys — utilisez le modèle deepseek/deepseek-r1:free"
+                        "💡 Modèle gratuit recommandé : meta-llama/llama-3.3-70b-instruct:free (rapide et précis)"
                     ),
                     font=ctk.CTkFont(size=12),
                     text_color="#8b949e",
@@ -387,9 +390,9 @@ class ResultView(ctk.CTkFrame):
                     text=(
                         f"Fournisseur : {provider.upper()}   |   Modèle : {model or 'Défaut'}\n\n"
                         "Cliquez sur le bouton ci-dessous pour générer une analyse cybersécurité approfondie "
-                        "et personnalisée de ce fichier par l'intelligence artificielle.\n"
-                        "L'IA analysera la structure, les comportements suspects, les indicateurs de compromission "
-                        "et fournira un verdict détaillé avec des recommandations concrètes."
+                        "et synthétique de ce fichier par l'intelligence artificielle.\n"
+                        "L'IA analysera la structure, les comportements réels (réseau, mémoire, persistance) "
+                        "et fournira un verdict clair avec des recommandations concrètes."
                     ),
                     font=ctk.CTkFont(size=12),
                     text_color="#8b949e",
@@ -408,10 +411,15 @@ class ResultView(ctk.CTkFrame):
                 ).pack(anchor="w")
 
 
-    def _generate_ai(self, tab, t, result, ai_cfg):
+    def _generate_ai(self, tab, t, result, ai_cfg=None):
         if self.ai_loading:
             return
         self.ai_loading = True
+
+        from app_config import load_config
+        live_cfg = load_config()
+        self.config = live_cfg
+        live_ai_cfg = live_cfg.get("ai_analyst", {})
 
         for child in tab.winfo_children():
             child.destroy()
@@ -436,12 +444,14 @@ class ResultView(ctk.CTkFrame):
         def _worker():
             try:
                 lang = self.config.get("language", "fr")
-                report = query_ai_analyst(result, ai_cfg, lang=lang)
+                report = query_ai_analyst(result, live_ai_cfg, lang=lang)
+                if not report or not report.strip():
+                    raise RuntimeError("Le modèle n'a retourné aucun contenu texte. Essayez un autre modèle dans les Réglages ⚙.")
                 result["ai_report"] = report
                 self.after(0, lambda: self._on_ai_done(tab, t, result))
             except Exception as exc:
                 err_msg = str(exc)
-                self.after(0, lambda: self._on_ai_error(tab, t, result, err_msg, ai_cfg))
+                self.after(0, lambda: self._on_ai_error(tab, t, result, err_msg, live_ai_cfg))
             finally:
                 self.ai_loading = False
 
@@ -449,6 +459,15 @@ class ResultView(ctk.CTkFrame):
 
     def _on_ai_done(self, tab, t, result):
         self._fill_ai_report(tab, t, result)
+
+    def update_config(self, new_cfg):
+        self.config = new_cfg
+        ai_tab_label = self.t.t("tabs.ai_report")
+        try:
+            tab_widget = self.tabs.tab(ai_tab_label)
+            self._fill_ai_report(tab_widget, self.t, self.result)
+        except Exception:
+            pass
 
     def _on_ai_error(self, tab, t, result, err_msg, ai_cfg):
         for child in tab.winfo_children():

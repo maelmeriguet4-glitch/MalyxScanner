@@ -273,8 +273,8 @@ class MalyxApp:
     def _show_result(self, result):
         for child in self.content.winfo_children():
             child.destroy()
-        view = ResultView(master=self.content, result=result, translator=self.t, config=self.config)
-        view.pack(fill="both", expand=True)
+        self.current_view = ResultView(master=self.content, result=result, translator=self.t, config=self.config)
+        self.current_view.pack(fill="both", expand=True)
 
         verdict = result["risk"]["verdict"]
         colors = {"clean": "#3fb950", "suspicious": "#e3b341", "malicious": "#f85149"}
@@ -320,3 +320,5 @@ class MalyxApp:
         self.config = updated
         self.theme = get_theme(updated.get("theme", "cyber_dark"))
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
+        if hasattr(self, "current_view") and self.current_view and hasattr(self.current_view, "update_config"):
+            self.current_view.update_config(updated)

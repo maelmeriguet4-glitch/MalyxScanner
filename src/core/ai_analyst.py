@@ -62,48 +62,78 @@ def _format_api_error(provider_name, status_code, raw_text):
     return f"Erreur {provider_name} ({status_code}) : {msg or raw_text}"
 
 
+def _safe_post(url, headers, json_data, timeout=35):
+    try:
+        return requests.post(url, headers=headers, json=json_data, timeout=timeout)
+    except requests.exceptions.SSLError:
+        return requests.post(url, headers=headers, json=json_data, timeout=timeout, verify=False)
+
+
+def clean_ai_output(text):
+    if not text:
+        return ""
+    import re
+    # Remove reasoning/thinking blocks
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.DOTALL)
+    lines = []
+    for line in text.splitlines():
+        trimmed = line.strip()
+        # Remove any leading markdown hashtags (#, ##, ###)
+        if re.match(r"^#{1,6}\s*", trimmed):
+            clean_h = re.sub(r"^#{1,6}\s*", "", trimmed)
+            clean_h = re.sub(r"^\d+[\.\)]\s*", "", clean_h)
+            lines.append("")
+            lines.append(clean_h)
+        else:
+            lines.append(line)
+    cleaned = "\n".join(lines)
+    return re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+
+
 def build_system_prompt(lang="fr"):
     if lang == "en":
         return (
             "You are an elite Senior Cybersecurity Analyst. "
             "Analyze the technical data from MalyxScanner and generate a concise, visual, and highly readable executive brief.\n\n"
-            "RULES:\n"
-            "- Be concise and punchy. Maximum 250 words total.\n"
-            "- Use bullet points (•), bold keywords, and emojis for high readability.\n"
-            "- Avoid long theoretical essays or generic disclaimers.\n\n"
+            "CRITICAL FORMAT RULES:\n"
+            "- Do NOT use any markdown hashtags (#, ##, ###).\n"
+            "- Use clean bold headings with emojis, and bullet points (•).\n"
+            "- Be concise and punchy. Maximum 200-250 words total.\n"
+            "- No greeting, no introduction, no academic fluff.\n\n"
             "MANDATORY STRUCTURE:\n"
-            "### 🎯 Summary\n"
-            "• **Real Identity** : [Exact nature & purpose of this file]\n"
-            "• **Verdict** : [Direct, unambiguous verdict in 1 sentence]\n\n"
-            "### ⚡ Concrete Technical Powers\n"
-            "• 🌐 **Network** : [Connections, downloads or telemetry]\n"
-            "• 🧠 **Memory & Process** : [Injection, execution or evasion behaviors]\n"
-            "• ⚙️ **System & Persistence** : [Registry, autorun or system alterations]\n\n"
-            "### ⚠️ Real Risks for You\n"
+            "🎯 OVERVIEW\n"
+            "• Real Identity : [Exact nature & purpose of this file]\n"
+            "• Verdict : [Direct, unambiguous verdict in 1 sentence]\n\n"
+            "⚡ CONCRETE TECHNICAL CAPABILITIES\n"
+            "• 🌐 Network : [Connections, downloads or telemetry]\n"
+            "• 🧠 Memory & Process : [Injection, execution or evasion behaviors]\n"
+            "• ⚙️ System & Persistence : [Registry, autorun or system alterations]\n\n"
+            "⚠️ REAL RISKS FOR YOU\n"
             "• [Key direct risk in 1 line]\n"
-            "• [Secondary risk or nuance in 1 line]\n\n"
-            "### 🛡️ Recommended Action\n"
+            "• [Secondary nuance in 1 line]\n\n"
+            "🛡️ RECOMMENDED ACTION\n"
             "• [Clear, direct step-by-step guidance]"
         )
     return (
         "Tu es un Analyste Senior en Cybersécurité d'élite. "
         "Analyse les données techniques brutes de MalyxScanner et génère un brief d'expertise ultra-clair, visuel, direct et aéré.\n\n"
-        "RÈGLES IMPORTANTES :\n"
-        "- Sois synthétique et percutant. 250 mots maximum au total.\n"
-        "- Utilise impérativement des puces (•), des mots-clés en gras et des emojis pour une lecture fluide et agréable.\n"
-        "- Évite les longs pavés théoriques et le blabla d'introduction.\n\n"
+        "RÈGLES DE FORMATAGE OBLIGATOIRES :\n"
+        "- N'utilise AUCUN symbole hashtag (#, ##, ###).\n"
+        "- Utilise uniquement des titres clairs en MAJUSCULES avec des emojis, et des puces (•).\n"
+        "- Sois synthétique et percutant. 200 à 250 mots maximum au total.\n"
+        "- Pas de bonjour, pas de blabla d'introduction ni de conclusion théorique.\n\n"
         "STRUCTURE OBLIGATOIRE :\n"
-        "### 🎯 En résumé\n"
-        "• **Nature réelle** : [Identité exacte et finalité concrète du binaire]\n"
-        "• **Verdict** : [Avis franc, direct et sans détour en 1 phrase]\n\n"
-        "### ⚡ Pouvoirs techniques concrets\n"
-        "• 🌐 **Réseau** : [Téléchargements / Communications / Mises à jour]\n"
-        "• 🧠 **Mémoire & Processus** : [Comportements d'injection / Exécution mémoire]\n"
-        "• ⚙️ **Système & Persistance** : [Démarrage automatique / Clés de registre]\n\n"
-        "### ⚠️ Risques réels pour vous\n"
+        "🎯 EN RÉSUMÉ\n"
+        "• Nature réelle : [Identité exacte et finalité concrète du binaire]\n"
+        "• Verdict : [Avis franc, direct et sans détour en 1 phrase]\n\n"
+        "⚡ CAPACITÉS TECHNIQUES CONCRÈTES\n"
+        "• 🌐 Réseau : [Téléchargements / Communications / Mises à jour]\n"
+        "• 🧠 Mémoire & Processus : [Comportements d'injection / Exécution mémoire]\n"
+        "• ⚙️ Système & Persistance : [Démarrage automatique / Clés de registre]\n\n"
+        "⚠️ RISQUES RÉELS POUR VOUS\n"
         "• [Risque principal concret en 1 phrase simple]\n"
         "• [Risque secondaire ou nuance éventuelle en 1 phrase]\n\n"
-        "### 🛡️ Action recommandée\n"
+        "🛡️ ACTION RECOMMANDÉE\n"
         "• [Conseil immédiat, clair et précis sur ce qu'il faut faire]"
     )
 
@@ -184,16 +214,24 @@ def query_ai_analyst(result, ai_config, lang="fr"):
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 700,
+            "max_tokens": 1500,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["openrouter"], headers=headers, json=body, timeout=30)
+            resp = _safe_post(PROVIDER_URLS["openrouter"], headers, body, timeout=35)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion OpenRouter : {exc}") from exc
         if resp.status_code != 200:
             raise RuntimeError(_format_api_error("OpenRouter", resp.status_code, resp.text))
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices:
+            raise RuntimeError("Réponse vide d'OpenRouter. Vérifiez le modèle ou vos quotas.")
+        choice = choices[0]
+        msg = choice.get("message", {})
+        content = msg.get("content") or choice.get("text") or msg.get("reasoning") or ""
+        if not content or not content.strip():
+            raise RuntimeError("Le modèle n'a pas retourné de texte. Essayez un autre modèle dans les Réglages ⚙ (ex: meta-llama/llama-3.3-70b-instruct:free).")
+        return clean_ai_output(content)
 
     # 2. Google Gemini API
     elif provider == "google":
@@ -203,18 +241,17 @@ def query_ai_analyst(result, ai_config, lang="fr"):
         body = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 700},
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1000},
         }
         try:
-            resp = requests.post(url, headers=headers, json=body, timeout=30)
+            resp = _safe_post(url, headers, body, timeout=35)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion Google Gemini : {exc}") from exc
 
         if resp.status_code == 404 and clean_model != "gemini-3.6-flash":
-            # Fallback to standard 3.6 flash
             fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             try:
-                resp = requests.post(fallback_url, headers=headers, json=body, timeout=30)
+                resp = _safe_post(fallback_url, headers, body, timeout=35)
             except Exception:
                 pass
 
@@ -222,7 +259,8 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             raise RuntimeError(_format_api_error("Google Gemini", resp.status_code, resp.text))
         data = resp.json()
         try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
+            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return clean_ai_output(raw_text)
         except (KeyError, IndexError) as exc:
             raise RuntimeError(f"Réponse inattendue de Gemini : {data}") from exc
 
@@ -239,16 +277,20 @@ def query_ai_analyst(result, ai_config, lang="fr"):
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 700,
+            "max_tokens": 1000,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["openai"], headers=headers, json=body, timeout=30)
+            resp = _safe_post(PROVIDER_URLS["openai"], headers, body, timeout=35)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion OpenAI : {exc}") from exc
         if resp.status_code != 200:
             raise RuntimeError(_format_api_error("OpenAI", resp.status_code, resp.text))
         data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        choices = data.get("choices")
+        if not choices:
+            raise RuntimeError("Réponse vide d'OpenAI.")
+        content = choices[0].get("message", {}).get("content") or ""
+        return clean_ai_output(content)
 
     # 4. Anthropic Claude
     elif provider == "anthropic":
@@ -259,19 +301,19 @@ def query_ai_analyst(result, ai_config, lang="fr"):
         }
         body = {
             "model": model,
-            "max_tokens": 700,
+            "max_tokens": 1000,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
             "temperature": 0.2,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["anthropic"], headers=headers, json=body, timeout=30)
+            resp = _safe_post(PROVIDER_URLS["anthropic"], headers, body, timeout=35)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion Anthropic : {exc}") from exc
         if resp.status_code != 200:
             raise RuntimeError(_format_api_error("Anthropic", resp.status_code, resp.text))
         data = resp.json()
-        return data["content"][0]["text"]
+        return clean_ai_output(data.get("content", [{}])[0].get("text", ""))
 
     else:
         raise ValueError(f"Fournisseur IA non reconnu : {provider}")
