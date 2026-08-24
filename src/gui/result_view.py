@@ -619,9 +619,10 @@ class ResultView(ctk.CTkFrame):
         h_card.pack(fill="x", padx=4, pady=(0, 10))
         self._kv_row(h_card, t.t("field.architecture"), info.get("architecture", "?"), t)
         self._kv_row(h_card, t.t("field.subsystem"), info.get("subsystem", "?"), t)
-        self._kv_row(h_card, t.t("field.compile_time"), info.get("compile_time", "?"), t)
-        self._kv_row(h_card, t.t("field.entry_point"), hex(info.get("entry_point", 0)) if info.get("entry_point") else "?", t, mono=True)
-        self._kv_row(h_card, t.t("field.image_base"), hex(info.get("image_base", 0)) if info.get("image_base") else "?", t, mono=True)
+        ep_val = hex(info["entry_point"]) if isinstance(info.get("entry_point"), int) else str(info.get("entry_point") or "?")
+        ib_val = hex(info["image_base"]) if isinstance(info.get("image_base"), int) else str(info.get("image_base") or "?")
+        self._kv_row(h_card, t.t("field.entry_point"), ep_val, t, mono=True)
+        self._kv_row(h_card, t.t("field.image_base"), ib_val, t, mono=True)
         if info.get("debug_path"):
             self._kv_row(h_card, t.t("field.pdb_path"), info["debug_path"], t, copyable=True, mono=True)
 
