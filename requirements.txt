@@ -5,3 +5,4 @@ requests>=2.32.3
 tkinterdnd2>=0.4.2
 pyinstaller>=6.10.0
 yara-python>=4.5.0; python_version <= "3.11"
+truststore>=0.9.0

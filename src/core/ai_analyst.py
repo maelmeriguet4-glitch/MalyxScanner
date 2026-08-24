@@ -7,9 +7,15 @@ to generate tailored, deep, and non-repetitive threat intelligence reports.
 import json
 import requests
 
+try:
+    import truststore
+    truststore.inject_into_ssl()
+except Exception:
+    pass
+
 DEFAULT_MODELS = {
     "openrouter": "google/gemini-2.0-flash-001",
-    "google": "gemini-1.5-flash",
+    "google": "gemini-3.6-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-20241022",
 }
@@ -19,6 +25,41 @@ PROVIDER_URLS = {
     "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
 }
+
+
+def _format_api_error(provider_name, status_code, raw_text):
+    msg = ""
+    try:
+        data = json.loads(raw_text)
+        if "error" in data:
+            if isinstance(data["error"], dict):
+                msg = data["error"].get("message", "")
+            elif isinstance(data["error"], str):
+                msg = data["error"]
+    except Exception:
+        msg = raw_text
+
+    if status_code == 429:
+        return (
+            f"⚠️ Quota ou crédits épuisés ({provider_name} 429) :\n"
+            f"{msg or 'Vos crédits/quotas chez ce fournisseur sont épuisés.'}\n\n"
+            f"💡 Solutions :\n"
+            f"  1. Rechargez vos crédits chez {provider_name}\n"
+            f"  2. Ou utilisez OpenRouter avec un modèle gratuit (ex: deepseek/deepseek-r1:free ou meta-llama/llama-3.3-70b-instruct:free)"
+        )
+    elif status_code in (401, 403):
+        return (
+            f"🔑 Clé API invalide ou non autorisée ({provider_name} {status_code}) :\n"
+            f"{msg or 'Vérifiez la clé API saisie dans les Réglages ⚙.'}"
+        )
+    elif status_code == 404:
+        detail = msg or "Ce modèle n'est pas disponible sur votre compte."
+        return (
+            f"❌ Modèle introuvable ({provider_name} 404) :\n"
+            f"{detail}\n"
+            f"💡 Essayez un autre modèle dans les Réglages ⚙ (ex: gemini-3.6-flash ou gemini-flash-latest)."
+        )
+    return f"Erreur {provider_name} ({status_code}) : {msg or raw_text}"
 
 
 def build_system_prompt(lang="fr"):
@@ -38,18 +79,21 @@ def build_system_prompt(lang="fr"):
             "(Clear verdict: can the user run it? If suspicious, what exact actions to take)"
         )
     return (
-        "Tu es un expert Senior en Cybersécurité et Rétro-ingénierie de logiciels malveillants. "
-        "Ton rôle est d'analyser le rapport technique fourni par MalyxScanner et de rédiger une explication "
-        "concrète, vivante, personnalisée et NON répétitive pour l'utilisateur.\n\n"
-        "Structure obligatoirement ta réponse en Markdown avec ces 4 sections claires :\n"
+        "Tu es un Analyste Senior en Cybersécurité et Ingénieur en Rétro-Ingénierie Malware de haut niveau. "
+        "Ton rôle est d'analyser le rapport technique brut fourni par le scanner MalyxScanner et de produire "
+        "une analyse humaine, vivante, personnalisée, concrète et NON RÉPÉTITIVE pour l'utilisateur.\n\n"
+        "Ne récite pas de généralités. Base-toi précisément sur les APIs Windows extraites (MITRE ATT&CK), "
+        "les hachages, l'entropie par bloc, les IOCs, les chaînes suspectes et les signatures pour expliquer les "
+        "pouvoirs réels et les capacités techniques de ce binaire.\n\n"
+        "Structure obligatoirement ta réponse avec ces 4 sections Markdown claires et détaillées :\n"
         "### 1. 📌 Nature & Identité Réelle du Fichier\n"
-        "(Explique ce qu'est précisément ce fichier au-delà de son nom ou extension déclarée)\n\n"
+        "(Explique concrètement de quoi il s'agit, au-delà de son extension déclarée)\n\n"
         "### 2. ⚡ Pouvoirs & Capacités Techniques Concrètes\n"
-        "(Détaille concrètement ce que ce fichier est capable de faire sur Windows d'après les APIs importées, commandes et IOCs)\n\n"
+        "(Détaille exactement ce que ce programme est techniquement capable de faire sur le système selon ses APIs et IOCs)\n\n"
         "### 3. 🎯 Vecteurs d'Attaque & Risques pour l'Utilisateur\n"
-        "(Explique les conséquences réelles : vol d'identifiants, porte dérobée, chiffrement, persistance au démarrage, etc.)\n\n"
+        "(Quels sont les impacts directs : vol de mots de passe, chiffrement, prise de contrôle à distance, surveillance, etc.)\n\n"
         "### 4. 🛡️ Recommandation & Avis d'Exécution sur-mesure\n"
-        "(Verdict clair : peut-on l'exécuter en sécurité ? Quelles actions précises effectuer)"
+        "(Donne un verdict franc et direct : l'utilisateur peut-il l'exécuter ? Quelles mesures immédiates doit-il prendre ?)"
     )
 
 
@@ -108,7 +152,7 @@ def query_ai_analyst(result, ai_config, lang="fr"):
     model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "google/gemini-2.0-flash-001")
 
     if not api_key:
-        raise ValueError("Clé API manquante pour l'analyste IA.")
+        raise ValueError("Clé API manquante pour l'analyste IA. Saisissez votre clé dans les Réglages ⚙.")
 
     system_prompt = build_system_prompt(lang)
     user_prompt = build_user_payload(result, lang)
@@ -129,9 +173,12 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             ],
             "temperature": 0.3,
         }
-        resp = requests.post(PROVIDER_URLS["openrouter"], headers=headers, json=body, timeout=45)
+        try:
+            resp = requests.post(PROVIDER_URLS["openrouter"], headers=headers, json=body, timeout=45)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Erreur de connexion OpenRouter : {exc}") from exc
         if resp.status_code != 200:
-            raise RuntimeError(f"Erreur OpenRouter ({resp.status_code}) : {resp.text}")
+            raise RuntimeError(_format_api_error("OpenRouter", resp.status_code, resp.text))
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
@@ -145,15 +192,26 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             "contents": [{"parts": [{"text": user_prompt}]}],
             "generationConfig": {"temperature": 0.3},
         }
-        resp = requests.post(url, headers=headers, json=body, timeout=45)
-        if resp.status_code == 404 and clean_model != "gemini-1.5-flash":
-            # Fallback to standard universal 1.5 flash
-            fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-            resp = requests.post(fallback_url, headers=headers, json=body, timeout=45)
+        try:
+            resp = requests.post(url, headers=headers, json=body, timeout=45)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Erreur de connexion Google Gemini : {exc}") from exc
+
+        if resp.status_code == 404 and clean_model != "gemini-3.6-flash":
+            # Fallback to standard 3.6 flash
+            fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
+            try:
+                resp = requests.post(fallback_url, headers=headers, json=body, timeout=45)
+            except Exception:
+                pass
+
         if resp.status_code != 200:
-            raise RuntimeError(f"Erreur Google Gemini ({resp.status_code}) : {resp.text}")
+            raise RuntimeError(_format_api_error("Google Gemini", resp.status_code, resp.text))
         data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        try:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError) as exc:
+            raise RuntimeError(f"Réponse inattendue de Gemini : {data}") from exc
 
     # 3. OpenAI
     elif provider == "openai":
@@ -169,9 +227,12 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             ],
             "temperature": 0.3,
         }
-        resp = requests.post(PROVIDER_URLS["openai"], headers=headers, json=body, timeout=45)
+        try:
+            resp = requests.post(PROVIDER_URLS["openai"], headers=headers, json=body, timeout=45)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Erreur de connexion OpenAI : {exc}") from exc
         if resp.status_code != 200:
-            raise RuntimeError(f"Erreur OpenAI ({resp.status_code}) : {resp.text}")
+            raise RuntimeError(_format_api_error("OpenAI", resp.status_code, resp.text))
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
@@ -189,11 +250,14 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             "messages": [{"role": "user", "content": user_prompt}],
             "temperature": 0.3,
         }
-        resp = requests.post(PROVIDER_URLS["anthropic"], headers=headers, json=body, timeout=45)
+        try:
+            resp = requests.post(PROVIDER_URLS["anthropic"], headers=headers, json=body, timeout=45)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Erreur de connexion Anthropic : {exc}") from exc
         if resp.status_code != 200:
-            raise RuntimeError(f"Erreur Anthropic ({resp.status_code}) : {resp.text}")
+            raise RuntimeError(_format_api_error("Anthropic", resp.status_code, resp.text))
         data = resp.json()
         return data["content"][0]["text"]
 
     else:
-        raise ValueError(f"Fournisseur IA inconnu : {provider}")
+        raise ValueError(f"Fournisseur IA non reconnu : {provider}")
