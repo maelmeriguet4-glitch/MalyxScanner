@@ -19,7 +19,7 @@ AI_PROVIDERS = [
 
 AI_MODEL_SUGGESTIONS = {
     "openrouter": ["google/gemini-2.0-flash-001", "anthropic/claude-3.5-haiku", "openai/gpt-4o-mini", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b-instruct"],
-    "google": ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"],
+    "google": ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp", "gemini-1.5-flash-8b"],
     "openai": ["gpt-4o-mini", "gpt-4o"],
     "anthropic": ["claude-3-5-haiku-20241022", "claude-3-5-sonnet-20241022"],
 }

@@ -500,7 +500,8 @@ class ResultView(ctk.CTkFrame):
             for item in breakdown:
                 row = ctk.CTkFrame(b_card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=4)
-                ctk.CTkLabel(row, text=f"• {item.get('component', '?')}", font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(side="left")
+                comp_name = t.t(item["key"]) if "key" in item else item.get("component", "?")
+                ctk.CTkLabel(row, text=f"• {comp_name}", font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(side="left")
                 pts = item.get("points", 0)
                 pts_color = "#f85149" if pts > 20 else ("#e3b341" if pts > 0 else "#3fb950")
                 ctk.CTkLabel(row, text=f"+{pts} pts", font=ctk.CTkFont(size=12, weight="bold"), text_color=pts_color).pack(side="right")
@@ -786,18 +787,83 @@ class ResultView(ctk.CTkFrame):
         section_header(frame, "Réputation VirusTotal (Lookup SHA-256)")
 
         if status == "disabled":
-            ctk.CTkLabel(frame, text="La vérification VirusTotal est désactivée. Vous pouvez l'activer dans les Réglages ⚙ avec votre clé API gratuite.", font=ctk.CTkFont(size=13), text_color="#8b949e", wraplength=700, justify="left").pack(padx=12, pady=16, anchor="w")
+            ctk.CTkLabel(
+                frame,
+                text="La vérification VirusTotal est désactivée. Vous pouvez l'activer dans les Réglages ⚙ avec votre clé API gratuite.",
+                font=ctk.CTkFont(size=13),
+                text_color="#8b949e",
+                wraplength=700,
+                justify="left",
+            ).pack(padx=12, pady=16, anchor="w")
         elif status == "not_found":
-            ctk.CTkLabel(frame, text="Ce fichier (empreinte SHA-256) n'a jamais été soumis à VirusTotal.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
+            ctk.CTkLabel(
+                frame,
+                text="Ce fichier (empreinte SHA-256) n'a jamais été soumis à VirusTotal.",
+                font=ctk.CTkFont(size=13),
+                text_color="#8b949e",
+            ).pack(padx=12, pady=16, anchor="w")
         elif status == "found":
             mal = vt.get("malicious", 0)
-            tot = vt.get("total", 0)
-            col = "#f85149" if mal > 0 else "#3fb950"
+            susp = vt.get("suspicious", 0)
+            tot = vt.get("total_engines") or vt.get("total", 0) or (mal + susp + vt.get("undetected", 0) + vt.get("harmless", 0)) or 1
+            harmless = vt.get("harmless", 0)
+            undetected = vt.get("undetected", 0)
+            permalink = vt.get("permalink")
+            flagged = vt.get("flagged_by", [])
+
+            col = "#f85149" if mal > 0 else ("#e3b341" if susp > 0 else "#3fb950")
             vt_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
             vt_card.pack(fill="x", padx=4, pady=8)
             v_inner = ctk.CTkFrame(vt_card, fg_color="transparent")
-            v_inner.pack(fill="x", padx=12, pady=10)
-            ctk.CTkLabel(v_inner, text=f"Détections antivirus : {mal} / {tot}", font=ctk.CTkFont(size=16, weight="bold"), text_color=col).pack(anchor="w")
+            v_inner.pack(fill="x", padx=14, pady=12)
+
+            if mal > 0:
+                header_txt = f"🚨 {mal} moteur(s) antivirus ont détecté ce fichier comme malveillant (sur {tot})"
+            elif susp > 0:
+                header_txt = f"⚠️ {susp} moteur(s) signalent ce fichier comme suspect (sur {tot})"
+            else:
+                header_txt = f"🟢 Aucun antivirus ne signale ce fichier (0/{tot} détections)"
+
+            ctk.CTkLabel(v_inner, text=header_txt, font=ctk.CTkFont(size=15, weight="bold"), text_color=col).pack(anchor="w", pady=(0, 8))
+
+            # Progress ratio bar
+            ratio = (mal + susp) / max(1, tot)
+            pbar = ctk.CTkProgressBar(v_inner, height=8, progress_color=col, fg_color="#21262d")
+            pbar.pack(fill="x", pady=(0, 10))
+            pbar.set(ratio)
+
+            # Details stats
+            s_row = ctk.CTkFrame(v_inner, fg_color="transparent")
+            s_row.pack(fill="x", pady=(0, 4))
+            ctk.CTkLabel(s_row, text=f"• Malveillants : {mal}", font=ctk.CTkFont(size=12, weight="bold"), text_color="#f85149").pack(side="left", padx=(0, 16))
+            ctk.CTkLabel(s_row, text=f"• Suspects : {susp}", font=ctk.CTkFont(size=12), text_color="#e3b341").pack(side="left", padx=(0, 16))
+            ctk.CTkLabel(s_row, text=f"• Sains / Indétectés : {undetected + harmless}", font=ctk.CTkFont(size=12), text_color="#3fb950").pack(side="left")
+
+            # Flagged engines detail
+            if flagged:
+                section_header(frame, "Détail des détections antivirus", f"{len(flagged)} moteur(s)")
+                f_card = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#30363d")
+                f_card.pack(fill="x", padx=4, pady=(0, 10))
+                for f_item in flagged:
+                    eng = f_item.get("engine", "Antivirus")
+                    res_name = f_item.get("result", "Malveillant")
+                    frow = ctk.CTkFrame(f_card, fg_color="transparent")
+                    frow.pack(fill="x", padx=12, pady=3)
+                    ctk.CTkLabel(frow, text=f"🛡️ {eng}", font=ctk.CTkFont(size=12, weight="bold"), text_color="#f0f6fc", width=180, anchor="w").pack(side="left")
+                    ctk.CTkLabel(frow, text=res_name, font=ctk.CTkFont(family="Consolas", size=11), text_color="#f85149", anchor="w").pack(side="left", fill="x", expand=True)
+
+            # Online report link button
+            if permalink:
+                ctk.CTkButton(
+                    frame,
+                    text="🌐 Voir le rapport complet en direct sur VirusTotal.com",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    height=34,
+                    fg_color="#1f6feb",
+                    hover_color="#1158c7",
+                    command=lambda u=permalink: webbrowser.open(u),
+                ).pack(anchor="w", padx=6, pady=8)
+
         else:
             ctk.CTkLabel(frame, text=f"Statut VirusTotal : {status}", font=ctk.CTkFont(size=13), text_color="#e3b341").pack(padx=12, pady=16, anchor="w")
 

@@ -9,7 +9,7 @@ import requests
 
 DEFAULT_MODELS = {
     "openrouter": "google/gemini-2.0-flash-001",
-    "google": "gemini-2.0-flash",
+    "google": "gemini-1.5-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-20241022",
 }
@@ -137,7 +137,8 @@ def query_ai_analyst(result, ai_config, lang="fr"):
 
     # 2. Google Gemini API
     elif provider == "google":
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        clean_model = model.replace("models/", "").strip()
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{clean_model}:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         body = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
@@ -145,6 +146,10 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             "generationConfig": {"temperature": 0.3},
         }
         resp = requests.post(url, headers=headers, json=body, timeout=45)
+        if resp.status_code == 404 and clean_model != "gemini-1.5-flash":
+            # Fallback to standard universal 1.5 flash
+            fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+            resp = requests.post(fallback_url, headers=headers, json=body, timeout=45)
         if resp.status_code != 200:
             raise RuntimeError(f"Erreur Google Gemini ({resp.status_code}) : {resp.text}")
         data = resp.json()
