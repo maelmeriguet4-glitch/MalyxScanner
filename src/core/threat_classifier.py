@@ -52,11 +52,11 @@ def classify_threat(identity, entropy, pe, yara, virustotal, strings, risk):
     # InfoStealer / Spyware check
     elif has_hard_stealer or (has_hooking and (has_network or has_persistence) and score >= 35):
         threat_type = "infostealer"
-    # Dropper / Downloader check
-    elif has_hard_dropper or (has_network and has_execution and score >= 35):
+    # Dropper / Downloader check (avoid false positive if 0/40+ clean on VT with no hard indicators)
+    elif has_hard_dropper or (has_network and has_execution and score >= 40 and not (virustotal.get("status") == "found" and virustotal.get("malicious", 0) == 0 and virustotal.get("total_engines", 0) >= 40)):
         threat_type = "dropper"
     # Trojan / RAT / Backdoor check
-    elif has_hard_trojan or (has_injection and score >= 35) or (has_antidebug and has_network and score >= 45) or score >= 50:
+    elif has_hard_trojan or (has_injection and score >= 35 and not (virustotal.get("status") == "found" and virustotal.get("malicious", 0) == 0 and virustotal.get("total_engines", 0) >= 40)) or (has_antidebug and has_network and score >= 45) or score >= 50:
         threat_type = "trojan"
     # Dangerous Script check
     elif family in ("code", "executable") and identity.get("extension") in (".bat", ".cmd", ".ps1", ".vbs", ".wsf") and (score >= 20 or strings_cmds):

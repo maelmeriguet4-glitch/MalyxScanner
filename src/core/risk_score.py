@@ -66,10 +66,22 @@ def compute_risk(identity, entropy, pe, yara, virustotal):
             vt_pts = min(55, 20 + int(ratio * 100 * 0.6))
         elif suspicious > 0:
             vt_pts = 8
-    if vt_pts:
-        breakdown.append({"key": "risk.virustotal", "points": vt_pts})
+        elif malicious == 0 and suspicious == 0 and total >= 40 and not yara_pts:
+            # File is known and cleared by 40+ AV engines on VirusTotal — apply trust discount
+            vt_pts = -20
 
-    score = min(100, identity_pts + entropy_pts + pe_pts + yara_pts + vt_pts)
+    if vt_pts:
+        breakdown.append({"key": "risk.virustotal_clean" if vt_pts < 0 else "risk.virustotal", "points": vt_pts})
+
+    # Check if signed binary
+    is_signed = bool(pe.get("info", {}).get("is_signed")) if pe.get("parsed") else False
+    raw_score = identity_pts + entropy_pts + pe_pts + yara_pts + vt_pts
+
+    # If file is digitally signed and 0/40+ on VirusTotal with no YARA hits, cap score at 25 (caution/suspicious at most)
+    if is_signed and vt_pts < 0 and not yara_pts:
+        raw_score = min(25, raw_score)
+
+    score = max(0, min(100, raw_score))
 
     if score >= VERDICT_THRESHOLDS["suspicious"]:
         verdict = "malicious"
