@@ -274,6 +274,24 @@ class AnalyzerTests(unittest.TestCase):
         self.assertIn("sha256", payload_fr)
         self.assertIn("risk_verdict", payload_fr)
 
+    def test_quarantine_and_deletion(self):
+        from core.remediation import quarantine_file, delete_file_permanently
+        # Test 1: Quarantine
+        sample1 = write_sample(self.tmp, "malware_test_1.exe", b"MZ" + b"\x00" * 100)
+        self.assertTrue(os.path.exists(sample1))
+        ok, msg, qpath = quarantine_file(sample1, metadata={"score": 90, "verdict": "malicious"})
+        self.assertTrue(ok)
+        self.assertFalse(os.path.exists(sample1))
+        self.assertTrue(os.path.exists(qpath))
+        self.assertTrue(qpath.endswith(".malyx_quarantine"))
+
+        # Test 2: Permanent deletion
+        sample2 = write_sample(self.tmp, "malware_test_2.exe", b"MZ" + b"\x00" * 100)
+        self.assertTrue(os.path.exists(sample2))
+        ok_del, msg_del = delete_file_permanently(sample2)
+        self.assertTrue(ok_del)
+        self.assertFalse(os.path.exists(sample2))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -329,5 +329,17 @@
     "strings_text": "• Chaînes (Strings) : Tous les textes en clair enfouis dans le binaire (adresses, messages, fonctions).\n• IOC (Indicateur de Compromission) : Traces concrètes laissées par une cybermenace : adresses IP de serveurs pirates (C2), URLs de téléchargement suspectes, clés de registre de démarrage automatique, ou commandes PowerShell furtives.\n• Utilité : Révèle immédiatement ce que le fichier cherche à contacter sur Internet ou quelles modifications système il tente d'exécuter.",
     "yara_title": "À quoi servent les Signatures YARA ?",
     "yara_text": "• YARA : Standard mondial utilisé par les analystes en cybersécurité (SOC / CERT) pour classifier et reconnaître les malwares.\n• Fonctionnement : Chaque règle contient l'ADN technique précis (motifs binaires ou textuels) d'une famille de menace connue (Ransomware WannaCry, Stealer RedLine, outils d'attaque).\n• Alerte : Si une règle se déclenche, le fichier contient formellement la signature d'un malware ou d'un outil offensif répertorié."
+  },
+  "remediation": {
+    "section_title": "⚡ Actions de Neutralisation Immédiate",
+    "quarantine_btn": "🛡️ Mettre en Quarantaine",
+    "delete_btn": "🗑️ Supprimer Définitivement",
+    "quarantine_confirm_title": "Mettre le fichier en quarantaine ?",
+    "quarantine_confirm_msg": "Le fichier sera neutralisé et isolé dans un dossier sécurisé.\nIl ne pourra plus être exécuté par inadvertance.\n\nVoulez-vous continuer ?",
+    "delete_confirm_title": "Supprimer définitivement ce fichier ?",
+    "delete_confirm_msg": "⚠️ ATTENTION : Ce fichier suspect ou malveillant sera définitivement détruit de votre ordinateur.\n\nVoulez-vous continuer ?",
+    "quarantined_success": "✅ Fichier mis en quarantaine et neutralisé avec succès !",
+    "deleted_success": "✅ Fichier supprimé définitivement avec succès !",
+    "action_failed": "Échec de l'action : {error}"
   }
 }

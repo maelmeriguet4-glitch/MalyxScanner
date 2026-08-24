@@ -1,8 +1,10 @@
 import os
 import threading
+from tkinter import messagebox
 import customtkinter as ctk
 
 from core.ai_analyst import query_ai_analyst
+from core.remediation import quarantine_file, delete_file_permanently
 
 
 SEVERITY_COLORS = {
@@ -232,6 +234,11 @@ class ResultView(ctk.CTkFrame):
             justify="left",
         ).pack(anchor="w", pady=(2, 0))
 
+        # --- Immediate Remediation Bar (for Moderate/Suspicious & Critical/Malicious files) ---
+        file_path = result.get("file", {}).get("path")
+        if (verdict in ("suspicious", "malicious") or score >= 40) and file_path:
+            self._build_remediation_bar(file_path, verdict)
+
         # --- Four Metric KPI Cards ---
         cards_frame = ctk.CTkFrame(self, fg_color="transparent")
         cards_frame.pack(fill="x", padx=12, pady=(0, 8))
@@ -299,6 +306,121 @@ class ResultView(ctk.CTkFrame):
         self._fill_yara(self.tabs.tab(t.t("tabs.yara")), t, result)
         self._fill_vt(self.tabs.tab(t.t("tabs.vt")), t, result)
         self._fill_privacy(self.tabs.tab(t.t("tabs.privacy")), t)
+
+    def _build_remediation_bar(self, file_path, verdict):
+        t = self.t
+        is_malicious = verdict == "malicious"
+        self.rem_frame = ctk.CTkFrame(
+            self,
+            fg_color="#161b22",
+            corner_radius=8,
+            border_width=1,
+            border_color="#da3633" if is_malicious else "#d29922",
+        )
+        self.rem_frame.pack(fill="x", padx=12, pady=(0, 8))
+
+        inner = ctk.CTkFrame(self.rem_frame, fg_color="transparent")
+        inner.pack(fill="x", padx=14, pady=8)
+
+        # Left title & subtitle
+        left_box = ctk.CTkFrame(inner, fg_color="transparent")
+        left_box.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(
+            left_box,
+            text=t.t("remediation.section_title"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f85149" if is_malicious else "#e3b341",
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            left_box,
+            text="Fichier suspect/dangereux détecté. Isolez-le ou détruisez-le pour protéger votre système :",
+            font=ctk.CTkFont(size=11),
+            text_color="#8b949e",
+        ).pack(anchor="w", pady=(1, 0))
+
+        # Right buttons
+        self.rem_btn_box = ctk.CTkFrame(inner, fg_color="transparent")
+        self.rem_btn_box.pack(side="right")
+
+        self.btn_quarantine = ctk.CTkButton(
+            self.rem_btn_box,
+            text=t.t("remediation.quarantine_btn"),
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#bb8009",
+            hover_color="#9e6a03",
+            height=34,
+            command=lambda: self._handle_quarantine(file_path),
+        )
+        self.btn_quarantine.pack(side="left", padx=4)
+
+        self.btn_delete = ctk.CTkButton(
+            self.rem_btn_box,
+            text=t.t("remediation.delete_btn"),
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#da3633",
+            hover_color="#b62324",
+            height=34,
+            command=lambda: self._handle_delete(file_path),
+        )
+        self.btn_delete.pack(side="left", padx=4)
+
+    def _handle_quarantine(self, file_path):
+        t = self.t
+        confirm = messagebox.askyesno(
+            t.t("remediation.quarantine_confirm_title"),
+            t.t("remediation.quarantine_confirm_msg"),
+            icon="warning",
+        )
+        if not confirm:
+            return
+
+        success, msg, qpath = quarantine_file(file_path, metadata=self.result)
+        if success:
+            for child in self.rem_btn_box.winfo_children():
+                child.destroy()
+            badge = ctk.CTkFrame(self.rem_btn_box, fg_color="#0e2a1b", corner_radius=6, border_width=1, border_color="#238636")
+            badge.pack(side="right")
+            ctk.CTkLabel(
+                badge,
+                text=t.t("remediation.quarantined_success"),
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="#3fb950",
+                padx=12,
+                pady=5,
+            ).pack()
+            messagebox.showinfo("Quarantaine", t.t("remediation.quarantined_success"))
+        else:
+            messagebox.showerror("Erreur", t.t("remediation.action_failed", error=msg))
+
+    def _handle_delete(self, file_path):
+        t = self.t
+        confirm = messagebox.askyesno(
+            t.t("remediation.delete_confirm_title"),
+            t.t("remediation.delete_confirm_msg"),
+            icon="warning",
+        )
+        if not confirm:
+            return
+
+        success, msg = delete_file_permanently(file_path)
+        if success:
+            for child in self.rem_btn_box.winfo_children():
+                child.destroy()
+            badge = ctk.CTkFrame(self.rem_btn_box, fg_color="#0e2a1b", corner_radius=6, border_width=1, border_color="#238636")
+            badge.pack(side="right")
+            ctk.CTkLabel(
+                badge,
+                text=t.t("remediation.deleted_success"),
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color="#3fb950",
+                padx=12,
+                pady=5,
+            ).pack()
+            messagebox.showinfo("Suppression", t.t("remediation.deleted_success"))
+        else:
+            messagebox.showerror("Erreur", t.t("remediation.action_failed", error=msg))
 
     def _scrollable(self, tab):
         return ctk.CTkScrollableFrame(tab, fg_color="#161b22")
@@ -642,6 +764,36 @@ class ResultView(ctk.CTkFrame):
                 a_row.pack(fill="x", padx=12, pady=6)
                 ctk.CTkLabel(a_row, text="✓", font=ctk.CTkFont(size=13, weight="bold"), text_color="#3fb950").pack(side="left", padx=(0, 8))
                 ctk.CTkLabel(a_row, text=t.t(a_key), font=ctk.CTkFont(size=12), text_color="#e6edf3", wraplength=680, justify="left").pack(side="left")
+
+        # Remediation Action Box in Safety Tab
+        file_path = result.get("file", {}).get("path")
+        if (verdict in ("suspicious", "malicious") or score >= 40) and file_path:
+            section_header(frame, t.t("remediation.section_title"))
+            rem_c = ctk.CTkFrame(frame, fg_color="#0d1117", corner_radius=6, border_width=1, border_color="#da3633" if verdict == "malicious" else "#d29922")
+            rem_c.pack(fill="x", padx=4, pady=(0, 10))
+
+            r_inner = ctk.CTkFrame(rem_c, fg_color="transparent")
+            r_inner.pack(fill="x", padx=12, pady=10)
+
+            ctk.CTkButton(
+                r_inner,
+                text=t.t("remediation.quarantine_btn"),
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color="#bb8009",
+                hover_color="#9e6a03",
+                height=36,
+                command=lambda: self._handle_quarantine(file_path),
+            ).pack(side="left", padx=(0, 6))
+
+            ctk.CTkButton(
+                r_inner,
+                text=t.t("remediation.delete_btn"),
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color="#da3633",
+                hover_color="#b62324",
+                height=36,
+                command=lambda: self._handle_delete(file_path),
+            ).pack(side="left")
 
     # --- 3. Identity & Hashes Tab ---
     def _fill_identity(self, tab, t, result):

@@ -329,5 +329,17 @@
     "strings_text": "• Strings: Plaintext sequences embedded in the binary (URLs, commands, paths, messages).\n• IOC (Indicator of Compromise): Concrete forensic evidence of malicious activity: C2 server IP addresses, malicious download URLs, autostart registry keys, or stealthy PowerShell commands.\n• Purpose: Immediately reveals who the program tries to contact or what system commands it attempts to run.",
     "yara_title": "What are YARA Signatures?",
     "yara_text": "• YARA: The global industry standard used by SOC analysts and threat researchers to detect and classify malware.\n• Mechanism: Each rule describes binary or textual patterns unique to a known threat family (WannaCry, RedLine Stealer, Mimikatz, etc.).\n• Alert: When a rule triggers, the file contains the exact technical DNA of a known malware or offensive tool."
+  },
+  "remediation": {
+    "section_title": "⚡ Immediate Threat Neutralization Actions",
+    "quarantine_btn": "🛡️ Quarantine File",
+    "delete_btn": "🗑️ Permanently Delete",
+    "quarantine_confirm_title": "Quarantine this file?",
+    "quarantine_confirm_msg": "The file will be neutralized and moved to a safe isolated folder.\nIt will no longer be executable by accident.\n\nDo you want to continue?",
+    "delete_confirm_title": "Permanently delete this file?",
+    "delete_confirm_msg": "⚠️ WARNING: This suspicious or malicious file will be permanently destroyed from your PC.\n\nDo you want to continue?",
+    "quarantined_success": "✅ File successfully quarantined and neutralized!",
+    "deleted_success": "✅ File permanently deleted successfully!",
+    "action_failed": "Action failed: {error}"
   }
 }
