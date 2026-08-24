@@ -14,11 +14,18 @@ except Exception:
     pass
 
 DEFAULT_MODELS = {
-    "openrouter": "openrouter/free",
+    "openrouter": "stealth/ox-alpha",
     "google": "gemini-3.6-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-20241022",
 }
+
+OPENROUTER_FALLBACK_MODELS = [
+    "stealth/ox-alpha",
+    "poolside/laguna-s-2.1:free",
+    "cohere/north-mini-code:free",
+    "dots-studio/dots-3-note-preview:free",
+]
 
 PROVIDER_URLS = {
     "openrouter": "https://openrouter.ai/api/v1/chat/completions",
@@ -213,31 +220,50 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             "X-Title": "MalyxScanner",
             "Content-Type": "application/json",
         }
-        body = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.2,
-            "max_tokens": 1500,
-        }
-        try:
-            resp = _safe_post(PROVIDER_URLS["openrouter"], headers, body, timeout=35)
-        except requests.exceptions.RequestException as exc:
-            raise RuntimeError(f"Erreur de connexion OpenRouter : {exc}") from exc
-        if resp.status_code != 200:
-            raise RuntimeError(_format_api_error("OpenRouter", resp.status_code, resp.text))
-        data = resp.json()
-        choices = data.get("choices")
-        if not choices:
-            raise RuntimeError("Réponse vide d'OpenRouter. Vérifiez le modèle ou vos quotas.")
-        choice = choices[0]
-        msg = choice.get("message", {})
-        content = msg.get("content") or choice.get("text") or msg.get("reasoning") or ""
-        if not content or not content.strip():
-            raise RuntimeError("Le modèle n'a pas retourné de texte. Essayez un autre modèle dans les Réglages ⚙ (ex: meta-llama/llama-3.3-70b-instruct:free).")
-        return clean_ai_output(content)
+
+        # Build prioritized models list to guarantee a successful generation
+        target_models = [model] if model else []
+        for fb in OPENROUTER_FALLBACK_MODELS:
+            if fb not in target_models:
+                target_models.append(fb)
+
+        last_error = None
+        for m in target_models:
+            body = {
+                "model": m,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                "temperature": 0.2,
+                "max_tokens": 1200,
+            }
+            try:
+                resp = _safe_post(PROVIDER_URLS["openrouter"], headers, body, timeout=25)
+            except requests.exceptions.RequestException as exc:
+                last_error = f"Erreur de connexion OpenRouter : {exc}"
+                continue
+
+            if resp.status_code != 200:
+                last_error = _format_api_error("OpenRouter", resp.status_code, resp.text)
+                continue
+
+            data = resp.json()
+            choices = data.get("choices")
+            if not choices:
+                continue
+            choice = choices[0]
+            msg = choice.get("message", {})
+            raw_content = msg.get("content") or choice.get("text") or msg.get("reasoning") or ""
+            cleaned = clean_ai_output(raw_content)
+
+            # Check for non-empty actual report (not a safety classifier stub like "User Safety: safe")
+            if len(cleaned) < 80 or "User Safety:" in cleaned:
+                continue
+
+            return cleaned
+
+        raise RuntimeError(last_error or "Impossible de générer le rapport IA. Veuillez vérifier vos réglages ou réessayer.")
 
     # 2. Google Gemini API
     elif provider == "google":

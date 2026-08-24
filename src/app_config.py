@@ -30,7 +30,7 @@ DEFAULTS = {
         "enabled": False,
         "provider": "openrouter",
         "api_key": "",
-        "model": "openrouter/free",
+        "model": "stealth/ox-alpha",
         "auto_analyze": False,
     },
     "contact": {
