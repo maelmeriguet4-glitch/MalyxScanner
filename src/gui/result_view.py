@@ -98,6 +98,33 @@ def finding_card(parent, t, finding):
     ).pack(side="left", fill="x", expand=True)
 
 
+def info_explanation_card(parent, title, text):
+    card = ctk.CTkFrame(parent, fg_color="#0d1117", corner_radius=8, border_width=1, border_color="#21262d")
+    card.pack(fill="x", padx=4, pady=(16, 8))
+
+    inner = ctk.CTkFrame(card, fg_color="transparent")
+    inner.pack(fill="x", padx=16, pady=12)
+
+    ctk.CTkLabel(
+        inner,
+        text="💡 " + title,
+        font=ctk.CTkFont(size=13, weight="bold"),
+        text_color="#58a6ff",
+        anchor="w",
+    ).pack(anchor="w")
+
+    ctk.CTkLabel(
+        inner,
+        text=text,
+        font=ctk.CTkFont(size=12),
+        text_color="#8b949e",
+        wraplength=1050,
+        justify="left",
+        anchor="w",
+    ).pack(anchor="w", pady=(6, 0))
+    return card
+
+
 class ResultView(ctk.CTkFrame):
     def __init__(self, master, result, translator, config=None, **kwargs):
         super().__init__(master, fg_color="#0d1117", **kwargs)
@@ -653,6 +680,12 @@ class ResultView(ctk.CTkFrame):
         if hashes.get("imphash"):
             self._kv_row(h_card, "Imphash", hashes["imphash"], t, copyable=True, mono=True)
 
+        info_explanation_card(
+            frame,
+            t.t("explainer.identity_title"),
+            t.t("explainer.identity_text"),
+        )
+
     # --- 4. PE Structure Tab ---
     def _fill_pe(self, tab, t, result):
         frame = self._scrollable(tab)
@@ -661,6 +694,11 @@ class ResultView(ctk.CTkFrame):
         pe = result.get("pe", {})
         if not pe.get("applicable") or not pe.get("parsed"):
             ctk.CTkLabel(frame, text=t.t("pe.not_pe"), font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
+            info_explanation_card(
+                frame,
+                t.t("explainer.pe_title"),
+                t.t("explainer.pe_text"),
+            )
             return
 
         info = pe.get("info", {})
@@ -742,6 +780,12 @@ class ResultView(ctk.CTkFrame):
                 col = "#f85149" if is_wx or sent > 7.2 else ("#e3b341" if sent > 6.5 else "#e6edf3")
                 ctk.CTkLabel(srow, text=f"{sname:8s} | Entropie: {sent:.2f} | {sz:,} o{flags_display}{badge_txt}", font=ctk.CTkFont(family="Consolas", size=12), text_color=col).pack(side="left")
 
+        info_explanation_card(
+            frame,
+            t.t("explainer.pe_title"),
+            t.t("explainer.pe_text"),
+        )
+
     # --- 5. Entropy & Blocks Tab ---
     def _fill_entropy(self, tab, t, result):
         frame = self._scrollable(tab)
@@ -783,6 +827,12 @@ class ResultView(ctk.CTkFrame):
                 col_box = ctk.CTkFrame(s_frame, width=16, height=36, fg_color=bcol, corner_radius=2)
                 col_box.pack(side="left", padx=1)
 
+        info_explanation_card(
+            frame,
+            t.t("explainer.entropy_title"),
+            t.t("explainer.entropy_text"),
+        )
+
     # --- 6. Strings & IOCs Tab ---
     def _fill_strings(self, tab, t, result):
         frame = self._scrollable(tab)
@@ -811,13 +861,19 @@ class ResultView(ctk.CTkFrame):
                 for item in items:
                     irow = ctk.CTkFrame(card, fg_color="transparent")
                     irow.pack(fill="x", padx=10, pady=2)
-                    ctk.CTkLabel(irow, text=f"• {item}", font=ctk.CTkFont(family="Consolas", size=11), text_color=color, wraplength=680, justify="left").pack(side="left")
+                    ctk.CTkLabel(irow, text=f"• {item}", font=ctk.CTkFont(family="Consolas", size=11), text_color=color, wraplength=950, justify="left").pack(side="left")
                     c_btn = ctk.CTkButton(irow, text=t.t("misc.copy"), width=50, height=20, font=ctk.CTkFont(size=10), fg_color="#21262d", hover_color="#30363d")
                     c_btn.configure(command=lambda v=item, b=c_btn: self._copy_to_clipboard(v, b, t))
                     c_btn.pack(side="right")
 
         if not found_any:
             ctk.CTkLabel(frame, text="Aucun IOC ou commande suspecte détectée dans les chaînes.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
+
+        info_explanation_card(
+            frame,
+            t.t("explainer.strings_title"),
+            t.t("explainer.strings_text"),
+        )
 
     # --- 7. YARA Tab ---
     def _fill_yara(self, tab, t, result):
@@ -832,6 +888,11 @@ class ResultView(ctk.CTkFrame):
 
         if not available:
             ctk.CTkLabel(frame, text="Le moteur YARA est désactivé ou indisponible.", font=ctk.CTkFont(size=13), text_color="#8b949e").pack(padx=12, pady=16, anchor="w")
+            info_explanation_card(
+                frame,
+                t.t("explainer.yara_title"),
+                t.t("explainer.yara_text"),
+            )
             return
 
         if not matches:
@@ -845,6 +906,12 @@ class ResultView(ctk.CTkFrame):
                 ctk.CTkLabel(m_inner, text=f"🔴 Règle : {m.get('rule')}", font=ctk.CTkFont(size=13, weight="bold"), text_color="#f85149").pack(anchor="w")
                 if m.get("description"):
                     ctk.CTkLabel(m_inner, text=m["description"], font=ctk.CTkFont(size=12), text_color="#e6edf3").pack(anchor="w", pady=(2, 0))
+
+        info_explanation_card(
+            frame,
+            t.t("explainer.yara_title"),
+            t.t("explainer.yara_text"),
+        )
 
     # --- 8. VirusTotal Tab ---
     def _fill_vt(self, tab, t, result):

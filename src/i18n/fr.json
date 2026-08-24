@@ -317,5 +317,17 @@
     "open_settings_btn": "⚙ Configurer l'Analyste IA dans les Réglages",
     "copy_report": "📋 Copier le rapport IA",
     "error_title": "Erreur lors de la génération IA"
+  },
+  "explainer": {
+    "identity_title": "Comprendre l'Identité & les Hachages",
+    "identity_text": "• Type Réel (Magic Bytes) : Révèle le véritable format du fichier même si un pirate a modifié son extension (ex: un .exe déguisé en .pdf).\n• Hachages (SHA-256, MD5, SHA-1) : Empreintes numériques uniques et infalsifiables. Si un seul octet du fichier change, l'empreinte change totalement. Cela permet d'identifier formellement un malware ou de valider l'intégrité d'un logiciel officiel.\n• Imphash : Empreinte de la table d'importation des fonctions, permettant de relier ce fichier à d'autres variantes de la même famille de malwares.",
+    "pe_title": "Qu'est-ce que la Structure PE (Portable Executable) ?",
+    "pe_text": "• Format PE : Format standard de tous les exécutables (.exe) et bibliothèques (.dll) sous Windows.\n• Sections : Compartiments du programme (.text pour le code exécutable, .data pour les variables, .rsrc pour les ressources). Une section à la fois inscriptible et exécutable (W+X) est une anomalie critique souvent utilisée pour injecter du code malveillant en mémoire.\n• Signature Authenticode : Indique si le fichier a été signé numériquement par un éditeur officiel de confiance. L'absence de signature est fréquente chez les logiciels malveillants.\n• APIs MITRE ATT&CK : Fonctions système appelées par le programme qui révèlent ses capacités réelles (injection mémoire, persistance au démarrage, communication réseau).",
+    "entropy_title": "Comprendre l'Entropie & la Détection de Packers",
+    "entropy_text": "• Entropie de Shannon : Mesure le niveau d'aléa et de compression des données sur une échelle de 0.000 à 8.000.\n• Fichier standard (4.0 à 6.5) : Code et texte lisibles non compressés.\n• Entropie très élevée (> 7.200) : Données chiffrées, compressées ou packées. Les auteurs de malwares utilisent des packers (UPX, VMProtect, packers personnalisés) pour dissimuler leur code malveillant et aveugler les antivirus statiques.\n• Analyse par Blocs : Découpe le fichier en segments de 16 Ko pour localiser précisément où se cachent les charges utiles chiffrées (payloads).",
+    "strings_title": "Qu'est-ce qu'un IOC et l'Extraction de Chaînes ?",
+    "strings_text": "• Chaînes (Strings) : Tous les textes en clair enfouis dans le binaire (adresses, messages, fonctions).\n• IOC (Indicateur de Compromission) : Traces concrètes laissées par une cybermenace : adresses IP de serveurs pirates (C2), URLs de téléchargement suspectes, clés de registre de démarrage automatique, ou commandes PowerShell furtives.\n• Utilité : Révèle immédiatement ce que le fichier cherche à contacter sur Internet ou quelles modifications système il tente d'exécuter.",
+    "yara_title": "À quoi servent les Signatures YARA ?",
+    "yara_text": "• YARA : Standard mondial utilisé par les analystes en cybersécurité (SOC / CERT) pour classifier et reconnaître les malwares.\n• Fonctionnement : Chaque règle contient l'ADN technique précis (motifs binaires ou textuels) d'une famille de menace connue (Ransomware WannaCry, Stealer RedLine, outils d'attaque).\n• Alerte : Si une règle se déclenche, le fichier contient formellement la signature d'un malware ou d'un outil offensif répertorié."
   }
 }

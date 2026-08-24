@@ -317,5 +317,17 @@
     "open_settings_btn": "⚙ Configure AI Analyst in Settings",
     "copy_report": "📋 Copy AI report",
     "error_title": "Error generating AI report"
+  },
+  "explainer": {
+    "identity_title": "Understanding File Identity & Hashes",
+    "identity_text": "• Real Type (Magic Bytes): Reveals the true file format even if an attacker modified the extension (e.g. an .exe disguised as .pdf).\n• Hashes (SHA-256, MD5, SHA-1): Unique and tamper-proof digital fingerprints. If a single byte changes, the entire hash changes. This allows verifying file integrity against known malware or legitimate software databases.\n• Imphash: Import table fingerprint, used to link this file to other variants from the same malware family.",
+    "pe_title": "What is the PE (Portable Executable) Structure?",
+    "pe_text": "• PE Format: Standard format for all Windows executables (.exe) and dynamic libraries (.dll).\n• Sections: Program memory compartments (.text for code, .data for variables, .rsrc for resources). A section marked both Writable and Executable (W+X) is a critical anomaly often used for runtime code injection.\n• Authenticode Signature: Indicates whether the binary was cryptographically signed by a verified publisher. The absence of a signature is very common in malicious software.\n• MITRE ATT&CK APIs: System functions called by the program that expose its capabilities (process injection, autostart persistence, network telemetry).",
+    "entropy_title": "Understanding Entropy & Packer Detection",
+    "entropy_text": "• Shannon Entropy: Measures the randomness of data on a scale from 0.000 to 8.000.\n• Standard Code (4.0 to 6.5): Plain text, standard compiled instructions.\n• Very High Entropy (> 7.200): Encrypted, compressed, or packed data. Malware authors use packers (UPX, VMProtect, custom stubs) to hide malicious code from static scanners.\n• Block Entropy: Slices the file into 16 KB chunks to visually pinpoint hidden encrypted payloads.",
+    "strings_title": "What are IOCs and String Extraction?",
+    "strings_text": "• Strings: Plaintext sequences embedded in the binary (URLs, commands, paths, messages).\n• IOC (Indicator of Compromise): Concrete forensic evidence of malicious activity: C2 server IP addresses, malicious download URLs, autostart registry keys, or stealthy PowerShell commands.\n• Purpose: Immediately reveals who the program tries to contact or what system commands it attempts to run.",
+    "yara_title": "What are YARA Signatures?",
+    "yara_text": "• YARA: The global industry standard used by SOC analysts and threat researchers to detect and classify malware.\n• Mechanism: Each rule describes binary or textual patterns unique to a known threat family (WannaCry, RedLine Stealer, Mimikatz, etc.).\n• Alert: When a rule triggers, the file contains the exact technical DNA of a known malware or offensive tool."
   }
 }
