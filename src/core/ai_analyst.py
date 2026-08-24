@@ -65,35 +65,46 @@ def _format_api_error(provider_name, status_code, raw_text):
 def build_system_prompt(lang="fr"):
     if lang == "en":
         return (
-            "You are an elite Senior Cybersecurity Analyst & Malware Reverse Engineer. "
-            "Your role is to analyze the technical scan report provided by MalyxScanner and generate a clear, "
-            "concrete, non-repetitive, and actionable analysis for the user.\n\n"
-            "Format your response in structured Markdown with these exact sections:\n"
-            "### 1. 📌 Nature & Exact Identity of the File\n"
-            "(Explain what this file specifically is, beyond its declared name)\n\n"
-            "### 2. ⚡ Concrete Powers & Technical Capabilities\n"
-            "(Detail specifically what this file can do on the OS based on the imported APIs, commands, and IOCs)\n\n"
-            "### 3. 🎯 Attack Vectors & Risks for the User\n"
-            "(Explain the real consequences: data theft, backdoor access, encryption, persistence, hardware abuse)\n\n"
-            "### 4. 🛡️ Tailored Security Recommendation\n"
-            "(Clear verdict: can the user run it? If suspicious, what exact actions to take)"
+            "You are an elite Senior Cybersecurity Analyst. "
+            "Analyze the technical data from MalyxScanner and generate a concise, visual, and highly readable executive brief.\n\n"
+            "RULES:\n"
+            "- Be concise and punchy. Maximum 250 words total.\n"
+            "- Use bullet points (•), bold keywords, and emojis for high readability.\n"
+            "- Avoid long theoretical essays or generic disclaimers.\n\n"
+            "MANDATORY STRUCTURE:\n"
+            "### 🎯 Summary\n"
+            "• **Real Identity** : [Exact nature & purpose of this file]\n"
+            "• **Verdict** : [Direct, unambiguous verdict in 1 sentence]\n\n"
+            "### ⚡ Concrete Technical Powers\n"
+            "• 🌐 **Network** : [Connections, downloads or telemetry]\n"
+            "• 🧠 **Memory & Process** : [Injection, execution or evasion behaviors]\n"
+            "• ⚙️ **System & Persistence** : [Registry, autorun or system alterations]\n\n"
+            "### ⚠️ Real Risks for You\n"
+            "• [Key direct risk in 1 line]\n"
+            "• [Secondary risk or nuance in 1 line]\n\n"
+            "### 🛡️ Recommended Action\n"
+            "• [Clear, direct step-by-step guidance]"
         )
     return (
-        "Tu es un Analyste Senior en Cybersécurité et Ingénieur en Rétro-Ingénierie Malware de haut niveau. "
-        "Ton rôle est d'analyser le rapport technique brut fourni par le scanner MalyxScanner et de produire "
-        "une analyse humaine, vivante, personnalisée, concrète et NON RÉPÉTITIVE pour l'utilisateur.\n\n"
-        "Ne récite pas de généralités. Base-toi précisément sur les APIs Windows extraites (MITRE ATT&CK), "
-        "les hachages, l'entropie par bloc, les IOCs, les chaînes suspectes et les signatures pour expliquer les "
-        "pouvoirs réels et les capacités techniques de ce binaire.\n\n"
-        "Structure obligatoirement ta réponse avec ces 4 sections Markdown claires et détaillées :\n"
-        "### 1. 📌 Nature & Identité Réelle du Fichier\n"
-        "(Explique concrètement de quoi il s'agit, au-delà de son extension déclarée)\n\n"
-        "### 2. ⚡ Pouvoirs & Capacités Techniques Concrètes\n"
-        "(Détaille exactement ce que ce programme est techniquement capable de faire sur le système selon ses APIs et IOCs)\n\n"
-        "### 3. 🎯 Vecteurs d'Attaque & Risques pour l'Utilisateur\n"
-        "(Quels sont les impacts directs : vol de mots de passe, chiffrement, prise de contrôle à distance, surveillance, etc.)\n\n"
-        "### 4. 🛡️ Recommandation & Avis d'Exécution sur-mesure\n"
-        "(Donne un verdict franc et direct : l'utilisateur peut-il l'exécuter ? Quelles mesures immédiates doit-il prendre ?)"
+        "Tu es un Analyste Senior en Cybersécurité d'élite. "
+        "Analyse les données techniques brutes de MalyxScanner et génère un brief d'expertise ultra-clair, visuel, direct et aéré.\n\n"
+        "RÈGLES IMPORTANTES :\n"
+        "- Sois synthétique et percutant. 250 mots maximum au total.\n"
+        "- Utilise impérativement des puces (•), des mots-clés en gras et des emojis pour une lecture fluide et agréable.\n"
+        "- Évite les longs pavés théoriques et le blabla d'introduction.\n\n"
+        "STRUCTURE OBLIGATOIRE :\n"
+        "### 🎯 En résumé\n"
+        "• **Nature réelle** : [Identité exacte et finalité concrète du binaire]\n"
+        "• **Verdict** : [Avis franc, direct et sans détour en 1 phrase]\n\n"
+        "### ⚡ Pouvoirs techniques concrets\n"
+        "• 🌐 **Réseau** : [Téléchargements / Communications / Mises à jour]\n"
+        "• 🧠 **Mémoire & Processus** : [Comportements d'injection / Exécution mémoire]\n"
+        "• ⚙️ **Système & Persistance** : [Démarrage automatique / Clés de registre]\n\n"
+        "### ⚠️ Risques réels pour vous\n"
+        "• [Risque principal concret en 1 phrase simple]\n"
+        "• [Risque secondaire ou nuance éventuelle en 1 phrase]\n\n"
+        "### 🛡️ Action recommandée\n"
+        "• [Conseil immédiat, clair et précis sur ce qu'il faut faire]"
     )
 
 
@@ -127,29 +138,30 @@ def build_user_payload(result, lang="fr"):
         "risk_score": risk.get("score"),
         "risk_verdict": risk.get("verdict"),
         "threat_classification": threat.get("type"),
-        "pe_authenticode_signed": sec_flags.get("has_digital_signature"),
-        "pe_debug_pdb_path": pe.get("info", {}).get("debug_path"),
+        "pe_authenticode_signed": pe.get("info", {}).get("is_signed", sec_flags.get("has_digital_signature")),
+        "pe_debug_pdb_path": pe.get("info", {}).get("pdb_path"),
         "pe_subsystem": pe.get("info", {}).get("subsystem"),
         "pe_mitre_apis": {k: len(v) for k, v in mitre.items() if v},
-        "extracted_commands": strings.get("commands", [])[:10],
-        "extracted_urls": strings.get("urls", [])[:10],
-        "extracted_ips": strings.get("ips", [])[:5],
-        "extracted_registry_keys": strings.get("registry", [])[:5],
-        "extracted_ransom_keywords": strings.get("ransom", [])[:5],
+        "extracted_commands": strings.get("commands", [])[:8],
+        "extracted_urls": strings.get("urls", [])[:8],
+        "extracted_ips": strings.get("ips", [])[:4],
+        "extracted_registry_keys": strings.get("registry", [])[:4],
+        "extracted_ransom_keywords": strings.get("ransom", [])[:4],
         "yara_matches": [m.get("rule") for m in yara.get("matches", [])],
         "virustotal_malicious_count": vt.get("malicious", 0),
+        "virustotal_total_engines": vt.get("total_engines", 0),
     }
 
     txt_json = json.dumps(summary, indent=2, ensure_ascii=False)
     if lang == "en":
-        return f"Please analyze this scan result and provide a comprehensive cybersecurity expert breakdown:\n\n```json\n{txt_json}\n```"
-    return f"Voici les données techniques extraites par le scanner. Rédige ton analyse d'expert en cybersécurité :\n\n```json\n{txt_json}\n```"
+        return f"Technical scan data:\n```json\n{txt_json}\n```\nProvide your concise executive analysis:"
+    return f"Données techniques du scan :\n```json\n{txt_json}\n```\nRédige ton brief d'expertise synthétique et visuel :"
 
 
 def query_ai_analyst(result, ai_config, lang="fr"):
     provider = ai_config.get("provider", "openrouter").lower()
     api_key = ai_config.get("api_key", "").strip()
-    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "google/gemini-2.0-flash-001")
+    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "meta-llama/llama-3.3-70b-instruct:free")
 
     if not api_key:
         raise ValueError("Clé API manquante pour l'analyste IA. Saisissez votre clé dans les Réglages ⚙.")
@@ -171,10 +183,11 @@ def query_ai_analyst(result, ai_config, lang="fr"):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.3,
+            "temperature": 0.2,
+            "max_tokens": 700,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["openrouter"], headers=headers, json=body, timeout=45)
+            resp = requests.post(PROVIDER_URLS["openrouter"], headers=headers, json=body, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion OpenRouter : {exc}") from exc
         if resp.status_code != 200:
@@ -190,10 +203,10 @@ def query_ai_analyst(result, ai_config, lang="fr"):
         body = {
             "system_instruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.3},
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 700},
         }
         try:
-            resp = requests.post(url, headers=headers, json=body, timeout=45)
+            resp = requests.post(url, headers=headers, json=body, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion Google Gemini : {exc}") from exc
 
@@ -201,7 +214,7 @@ def query_ai_analyst(result, ai_config, lang="fr"):
             # Fallback to standard 3.6 flash
             fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
             try:
-                resp = requests.post(fallback_url, headers=headers, json=body, timeout=45)
+                resp = requests.post(fallback_url, headers=headers, json=body, timeout=30)
             except Exception:
                 pass
 
@@ -225,10 +238,11 @@ def query_ai_analyst(result, ai_config, lang="fr"):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.3,
+            "temperature": 0.2,
+            "max_tokens": 700,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["openai"], headers=headers, json=body, timeout=45)
+            resp = requests.post(PROVIDER_URLS["openai"], headers=headers, json=body, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion OpenAI : {exc}") from exc
         if resp.status_code != 200:
@@ -245,13 +259,13 @@ def query_ai_analyst(result, ai_config, lang="fr"):
         }
         body = {
             "model": model,
-            "max_tokens": 2048,
+            "max_tokens": 700,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
-            "temperature": 0.3,
+            "temperature": 0.2,
         }
         try:
-            resp = requests.post(PROVIDER_URLS["anthropic"], headers=headers, json=body, timeout=45)
+            resp = requests.post(PROVIDER_URLS["anthropic"], headers=headers, json=body, timeout=30)
         except requests.exceptions.RequestException as exc:
             raise RuntimeError(f"Erreur de connexion Anthropic : {exc}") from exc
         if resp.status_code != 200:

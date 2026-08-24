@@ -19,10 +19,10 @@ AI_PROVIDERS = [
 
 AI_MODEL_SUGGESTIONS = {
     "openrouter": [
-        "google/gemini-2.0-flash-001",
-        "deepseek/deepseek-r1:free",
         "meta-llama/llama-3.3-70b-instruct:free",
         "qwen/qwen-2.5-coder-32b-instruct:free",
+        "google/gemini-2.0-flash-001",
+        "deepseek/deepseek-r1:free",
         "anthropic/claude-3.5-haiku",
         "openai/gpt-4o-mini",
     ],
@@ -351,11 +351,11 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(frame, text=t.t("settings.ai_model") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
         self.ai_model_entry = ctk.CTkEntry(
             frame,
-            placeholder_text="ex: deepseek/deepseek-r1:free, gemini-3.6-flash, gpt-4o-mini...",
+            placeholder_text="ex: meta-llama/llama-3.3-70b-instruct:free (rapide), gemini-3.6-flash, gpt-4o-mini...",
             fg_color=theme["subcard"],
             border_color=theme["border"],
         )
-        cur_model = ai_cfg.get("model", "") or "google/gemini-2.0-flash-001"
+        cur_model = ai_cfg.get("model", "") or "meta-llama/llama-3.3-70b-instruct:free"
         self.ai_model_entry.insert(0, cur_model)
         self.ai_model_entry.pack(fill="x", padx=10, pady=(0, 10))
 
