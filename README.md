@@ -1,12 +1,20 @@
-# MalyxScanner 🛡️
+<p align="center">
+  <img src="assets/logo.png" width="180" alt="MalyxScanner Logo">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6.svg?logo=windows)](https://microsoft.com)
-[![Python: 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python)](https://python.org)
-[![Vibe Coded](https://img.shields.io/badge/Vibe%20Coded-with%20Antigravity%20⚡-8A2BE2.svg)](https://deepmind.google)
-[![Privacy: 100% Local](https://img.shields.io/badge/Privacy-100%25%20Local-success.svg)](#-confidentialité--vie-privée)
+<h1 align="center">MalyxScanner 🛡️</h1>
 
-**MalyxScanner** est un analyseur de malwares et scanner statique **100% local, privé et open source** doté d'une interface graphique moderne typée SOC Cyber (*Dark Opaque*, *Midnight*, *OLED*, *Matrix*, *Light*).
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="https://microsoft.com"><img src="https://img.shields.io/badge/Platform-Windows-0078D6.svg?logo=windows" alt="Platform: Windows"></a>
+  <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.11+-3776AB.svg?logo=python" alt="Python: 3.11+"></a>
+  <a href="https://github.com/maelmeriguet4-glitch/MalyxScanner/releases/tag/v2.1.0"><img src="https://img.shields.io/badge/Release-v2.1.0-blueviolet.svg" alt="Release: v2.1.0"></a>
+  <a href="#-confidentialité--vie-privée"><img src="https://img.shields.io/badge/Privacy-100%25%20Local-success.svg" alt="Privacy: 100% Local"></a>
+</p>
+
+<p align="center">
+  <b>Analyseur de malwares & Scanner statique de cybersécurité 100% local, privé et open-source.</b>
+</p>
 
 ---
 

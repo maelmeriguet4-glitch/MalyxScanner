@@ -32,6 +32,19 @@ def create_root():
         return ctk.CTk(), False
 
 
+def _find_icon():
+    candidates = [
+        Path(getattr(sys, "_MEIPASS", "")) / "assets" / "icon.ico",
+        SRC_DIR.parent / "assets" / "icon.ico",
+        SRC_DIR / "assets" / "icon.ico",
+        Path("assets/icon.ico"),
+    ]
+    for c in candidates:
+        if c and c.is_file():
+            return str(c)
+    return None
+
+
 def main():
     config = load_config()
     translator = Translator(config.get("language", "fr"))
@@ -40,6 +53,14 @@ def main():
     ctk.set_default_color_theme("blue")
 
     root, _ = create_root()
+
+    icon_path = _find_icon()
+    if icon_path:
+        try:
+            root.iconbitmap(icon_path)
+        except Exception:
+            pass
+
     app = MalyxApp(root, translator, config, save_config)
     root.mainloop()
 
