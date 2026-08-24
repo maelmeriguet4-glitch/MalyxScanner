@@ -30,7 +30,7 @@ DEFAULTS = {
         "enabled": False,
         "provider": "openrouter",
         "api_key": "",
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
+        "model": "openrouter/free",
         "auto_analyze": False,
     },
     "contact": {

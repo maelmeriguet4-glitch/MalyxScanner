@@ -14,7 +14,7 @@ except Exception:
     pass
 
 DEFAULT_MODELS = {
-    "openrouter": "google/gemini-2.0-flash-001",
+    "openrouter": "openrouter/free",
     "google": "gemini-3.6-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-20241022",
@@ -197,7 +197,7 @@ def build_user_payload(result, lang="fr"):
 def query_ai_analyst(result, ai_config, lang="fr"):
     provider = ai_config.get("provider", "openrouter").lower()
     api_key = ai_config.get("api_key", "").strip()
-    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "meta-llama/llama-3.3-70b-instruct:free")
+    model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "openrouter/free")
 
     if not api_key:
         raise ValueError("Clé API manquante pour l'analyste IA. Saisissez votre clé dans les Réglages ⚙.")

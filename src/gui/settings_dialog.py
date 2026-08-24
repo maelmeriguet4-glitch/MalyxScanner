@@ -351,11 +351,11 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(frame, text=t.t("settings.ai_model") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
         self.ai_model_entry = ctk.CTkEntry(
             frame,
-            placeholder_text="ex: meta-llama/llama-3.3-70b-instruct:free (rapide), gemini-3.6-flash, gpt-4o-mini...",
+            placeholder_text="ex: openrouter/free (recommandé gratuit), nvidia/nemotron-3.5-lightning:free, gemini-3.6-flash...",
             fg_color=theme["subcard"],
             border_color=theme["border"],
         )
-        cur_model = ai_cfg.get("model", "") or "meta-llama/llama-3.3-70b-instruct:free"
+        cur_model = ai_cfg.get("model", "") or "openrouter/free"
         self.ai_model_entry.insert(0, cur_model)
         self.ai_model_entry.pack(fill="x", padx=10, pady=(0, 10))
 
@@ -403,7 +403,7 @@ class SettingsDialog(ctk.CTkToplevel):
         idx = self.provider_labels.index(choice) if choice in self.provider_labels else 0
         key = self.provider_keys[idx]
         default_for_key = {
-            "openrouter": "deepseek/deepseek-r1:free",
+            "openrouter": "openrouter/free",
             "google": "gemini-3.6-flash",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-haiku-20241022",
