@@ -327,17 +327,17 @@ class SettingsDialog(ctk.CTkToplevel):
         self.provider_menu.set(self.provider_labels[p_idx])
         self.provider_menu.pack(fill="x", padx=10, pady=(0, 10))
 
-        # Model input / dropdown
+        # Model input (Free text entry field)
         ctk.CTkLabel(frame, text=t.t("settings.ai_model") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
-        self.ai_model_menu = ctk.CTkComboBox(
+        self.ai_model_entry = ctk.CTkEntry(
             frame,
-            values=AI_MODEL_SUGGESTIONS.get(cur_p, ["google/gemini-2.0-flash-001"]),
+            placeholder_text="ex: deepseek/deepseek-r1:free, gemini-3.6-flash, gpt-4o-mini...",
             fg_color=theme["subcard"],
             border_color=theme["border"],
         )
-        cur_model = ai_cfg.get("model", "") or AI_MODEL_SUGGESTIONS.get(cur_p, ["google/gemini-2.0-flash-001"])[0]
-        self.ai_model_menu.set(cur_model)
-        self.ai_model_menu.pack(fill="x", padx=10, pady=(0, 10))
+        cur_model = ai_cfg.get("model", "") or "google/gemini-2.0-flash-001"
+        self.ai_model_entry.insert(0, cur_model)
+        self.ai_model_entry.pack(fill="x", padx=10, pady=(0, 10))
 
         # API Key
         ctk.CTkLabel(frame, text=t.t("settings.ai_api_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
@@ -382,10 +382,14 @@ class SettingsDialog(ctk.CTkToplevel):
     def _on_ai_provider_change(self, choice):
         idx = self.provider_labels.index(choice) if choice in self.provider_labels else 0
         key = self.provider_keys[idx]
-        suggestions = AI_MODEL_SUGGESTIONS.get(key, [])
-        self.ai_model_menu.configure(values=suggestions)
-        if suggestions:
-            self.ai_model_menu.set(suggestions[0])
+        default_for_key = {
+            "openrouter": "deepseek/deepseek-r1:free",
+            "google": "gemini-3.6-flash",
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-3-5-haiku-20241022",
+        }.get(key, "")
+        if not self.ai_model_entry.get().strip():
+            self.ai_model_entry.insert(0, default_for_key)
 
     def _open_ai_key_link(self):
         choice = self.provider_menu.get()
@@ -572,7 +576,7 @@ class SettingsDialog(ctk.CTkToplevel):
         ai_cfg["enabled"] = bool(self.ai_enable_var.get())
         idx_p = self.provider_labels.index(self.provider_menu.get()) if self.provider_menu.get() in self.provider_labels else 0
         ai_cfg["provider"] = self.provider_keys[idx_p]
-        ai_cfg["model"] = self.ai_model_menu.get().strip()
+        ai_cfg["model"] = self.ai_model_entry.get().strip()
         ai_cfg["api_key"] = self.ai_key_entry.get().strip()
         ai_cfg["auto_analyze"] = bool(self.ai_auto_var.get())
 
