@@ -44,8 +44,8 @@ class SettingsDialog(ctk.CTkToplevel):
         self.theme = get_theme(active_theme_key)
 
         self.title("⚙ " + self.t.t("settings.title") + " & Personnalisation")
-        self.geometry("680x560")
-        self.minsize(620, 500)
+        self.geometry("720x600")
+        self.minsize(640, 520)
         self.transient(master)
         self.configure(fg_color=self.theme["bg"])
         self.grab_set()
@@ -71,7 +71,37 @@ class SettingsDialog(ctk.CTkToplevel):
             text_color=theme["text"],
         ).pack(side="left")
 
-        # Main Tabview
+        # Bottom Actions Bar (Packed first so it is always visible at the bottom)
+        bottom = ctk.CTkFrame(self, fg_color="transparent")
+        bottom.pack(side="bottom", fill="x", padx=20, pady=12)
+
+        self.restart_note = ctk.CTkLabel(bottom, text="", font=ctk.CTkFont(size=11), text_color="#e3b341")
+        self.restart_note.pack(side="left")
+
+        ctk.CTkButton(
+            bottom,
+            text=t.t("settings.cancel"),
+            width=100,
+            height=36,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            text_color=theme["text"],
+            command=self.destroy,
+        ).pack(side="right", padx=(10, 0))
+
+        ctk.CTkButton(
+            bottom,
+            text="💾 " + t.t("settings.save"),
+            width=150,
+            height=36,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=theme["accent"],
+            hover_color=theme["accent_hover"],
+            command=self._save,
+        ).pack(side="right")
+
+        # Main Tabview (Expands to fill remaining vertical space)
         tabs = ctk.CTkTabview(
             self,
             fg_color=theme["card"],
@@ -80,7 +110,7 @@ class SettingsDialog(ctk.CTkToplevel):
             segmented_button_selected_hover_color=theme["accent_hover"],
             segmented_button_unselected_color=theme["card"],
         )
-        tabs.pack(fill="both", expand=True, padx=16, pady=(10, 6))
+        tabs.pack(side="top", fill="both", expand=True, padx=16, pady=(10, 6))
 
         tab_general = tabs.add(t.t("settings.tab_general"))
         tab_perf = tabs.add(t.t("settings.tab_perf"))
@@ -102,32 +132,6 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # --- 5. Tab Contact & Feedback ---
         self._build_contact_tab(tab_contact, t, theme, cfg)
-
-        # Bottom Buttons
-        bottom = ctk.CTkFrame(self, fg_color="transparent")
-        bottom.pack(side="bottom", fill="x", padx=20, pady=12)
-
-        self.restart_note = ctk.CTkLabel(bottom, text="", font=ctk.CTkFont(size=11), text_color="#e3b341")
-        self.restart_note.pack(side="left")
-
-        ctk.CTkButton(
-            bottom,
-            text=t.t("settings.cancel"),
-            width=100,
-            fg_color="#21262d",
-            hover_color="#30363d",
-            text_color=theme["text"],
-            command=self.destroy,
-        ).pack(side="right", padx=(8, 0))
-
-        ctk.CTkButton(
-            bottom,
-            text="💾 " + t.t("settings.save"),
-            width=120,
-            fg_color=theme["accent"],
-            hover_color=theme["accent_hover"],
-            command=self._save,
-        ).pack(side="right")
 
     def _build_general_tab(self, parent, t, theme, cfg):
         frame = ctk.CTkScrollableFrame(parent, fg_color=theme["card"])
