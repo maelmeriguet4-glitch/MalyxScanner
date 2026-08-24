@@ -73,8 +73,12 @@ def clean_ai_output(text):
     if not text:
         return ""
     import re
-    # Remove reasoning/thinking blocks
+    # 1. Remove XML-style reasoning/thinking blocks (<think>...</think>)
     text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.DOTALL)
+    # 2. Strip any 'Thinking Process:' preamble before the first real section header
+    match = re.search(r"(🎯|⚡|⚠️|🛡️|EN RÉSUMÉ|OVERVIEW)", text, flags=re.IGNORECASE)
+    if match:
+        text = text[match.start():]
     lines = []
     for line in text.splitlines():
         trimmed = line.strip()
@@ -96,6 +100,7 @@ def build_system_prompt(lang="fr"):
             "You are an elite Senior Cybersecurity Analyst. "
             "Analyze the technical data from MalyxScanner and generate a concise, visual, and highly readable executive brief.\n\n"
             "CRITICAL FORMAT RULES:\n"
+            "- Start DIRECTLY with '🎯 OVERVIEW'. Never output thinking steps or 'Thinking Process:'.\n"
             "- Do NOT use any markdown hashtags (#, ##, ###).\n"
             "- Use clean bold headings with emojis, and bullet points (•).\n"
             "- Be concise and punchy. Maximum 200-250 words total.\n"
@@ -118,6 +123,7 @@ def build_system_prompt(lang="fr"):
         "Tu es un Analyste Senior en Cybersécurité d'élite. "
         "Analyse les données techniques brutes de MalyxScanner et génère un brief d'expertise ultra-clair, visuel, direct et aéré.\n\n"
         "RÈGLES DE FORMATAGE OBLIGATOIRES :\n"
+        "- Commence DIRECTEMENT par '🎯 EN RÉSUMÉ'. N'écris JAMAIS de 'Thinking Process' ou d'étapes de réflexion.\n"
         "- N'utilise AUCUN symbole hashtag (#, ##, ###).\n"
         "- Utilise uniquement des titres clairs en MAJUSCULES avec des emojis, et des puces (•).\n"
         "- Sois synthétique et percutant. 200 à 250 mots maximum au total.\n"
