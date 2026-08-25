@@ -55,8 +55,6 @@ AI_KEY_LINKS = {
     "openai": "https://platform.openai.com/api-keys",
     "anthropic": "https://console.anthropic.com/settings/keys",
 }
-    "anthropic": "https://console.anthropic.com/settings/keys",
-}
 
 
 class SettingsDialog(ctk.CTkToplevel):
