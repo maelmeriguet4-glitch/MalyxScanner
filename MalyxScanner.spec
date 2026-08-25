@@ -16,6 +16,7 @@ hiddenimports = [
     'core.entropy',
     'core.filetype',
     'core.pe_analysis',
+    'core.remediation',
     'core.threat_classifier',
     'core.strings_extractor',
     'core.yara_scanner',
