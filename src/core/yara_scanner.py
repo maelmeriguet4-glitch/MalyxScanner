@@ -84,13 +84,13 @@ def scan_file(path):
 
     for ruleset in compiled_list:
         try:
-            # If file is larger than 64 MB, scan data buffer (header + tail) to avoid 100% disk thrashing
-            if file_size > 64 * 1024 * 1024:
+            # For files up to 256 MB, use fast C-level memory mapped scanning across entire file
+            if file_size > 256 * 1024 * 1024:
                 with open(path, "rb") as f:
-                    head_data = f.read(16 * 1024 * 1024)
-                matches = ruleset.match(data=head_data, timeout=5)
+                    head_data = f.read(32 * 1024 * 1024)
+                matches = ruleset.match(data=head_data, timeout=10)
             else:
-                matches = ruleset.match(str(path), timeout=5)
+                matches = ruleset.match(str(path), timeout=10)
         except (yara.TimeoutError, yara.Error, OSError):
             continue
 

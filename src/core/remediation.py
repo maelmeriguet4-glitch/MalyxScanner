@@ -54,7 +54,50 @@ def quarantine_file(file_path, metadata=None):
         return False, f"Impossible de mettre le fichier en quarantaine : {exc}", None
 
 
+def _shred_file_payload(file_path):
+    """Overwrites file contents with random bytes then zeros before removal (secure shredding)."""
+    try:
+        file_size = os.path.getsize(file_path)
+    except OSError:
+        file_size = 0
+
+    if file_size > 0:
+        chunk_size = 64 * 1024  # 64 KB chunks
+        try:
+            with open(file_path, "r+b") as f:
+                # Pass 1: Cryptographically secure random bytes
+                f.seek(0)
+                remaining = file_size
+                while remaining > 0:
+                    write_len = min(remaining, chunk_size)
+                    f.write(os.urandom(write_len))
+                    remaining -= write_len
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except Exception:
+                    pass
+
+                # Pass 2: Zero bytes
+                f.seek(0)
+                remaining = file_size
+                zero_chunk = b"\x00" * chunk_size
+                while remaining > 0:
+                    write_len = min(remaining, chunk_size)
+                    f.write(zero_chunk[:write_len])
+                    remaining -= write_len
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except Exception:
+                    pass
+                f.truncate(0)
+        except (PermissionError, OSError):
+            pass
+
+
 def delete_file_permanently(file_path):
+    """Securely shreds and removes the specified file from disk."""
     if not file_path or not os.path.isfile(file_path):
         return False, "Le fichier est introuvable ou a déjà été supprimé."
 
@@ -65,7 +108,11 @@ def delete_file_permanently(file_path):
         except Exception:
             pass
 
+        # Perform physical multi-pass data overwrite (shredding)
+        _shred_file_payload(file_path)
+
+        # Unlink file from filesystem
         os.remove(file_path)
-        return True, "Fichier supprimé définitivement avec succès."
+        return True, "Fichier déchiqueté et supprimé définitivement avec succès."
     except Exception as exc:
         return False, f"Impossible de supprimer le fichier : {exc}"

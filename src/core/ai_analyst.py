@@ -70,10 +70,8 @@ def _format_api_error(provider_name, status_code, raw_text):
 
 
 def _safe_post(url, headers, json_data, timeout=35):
-    try:
-        return requests.post(url, headers=headers, json=json_data, timeout=timeout)
-    except requests.exceptions.SSLError:
-        return requests.post(url, headers=headers, json=json_data, timeout=timeout, verify=False)
+    # Strict TLS verification: truststore ensures system certificates are used without unsafe fallback
+    return requests.post(url, headers=headers, json=json_data, timeout=timeout)
 
 
 def clean_ai_output(text):
