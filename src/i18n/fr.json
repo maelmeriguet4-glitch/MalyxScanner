@@ -313,7 +313,7 @@
     "generate_btn": "✨ Générer l'Analyse IA Approfondie",
     "loading": "Génération de l'analyse par l'Analyste IA en cours...",
     "not_configured_title": "Analyste Cybersécurité IA non configuré",
-    "not_configured_desc": "Pour obtenir une explication sur-mesure et dynamique des pouvoirs de ce fichier, activez l'Analyste IA dans les Réglages avec une clé OpenRouter, Google Gemini, OpenAI ou Anthropic.",
+    "not_configured_desc": "Pour obtenir un rapport d'expertise clair et dynamique des risques de ce fichier, activez l'Analyste IA dans les Réglages. Deux options s'offrent à vous : le mode 100% Local & Hors-ligne avec Ollama (confidentialité absolue, zéro Internet) ou le mode Cloud chiffré (OpenRouter gratuit, Gemini, OpenAI, Claude).",
     "open_settings_btn": "⚙ Configurer l'Analyste IA dans les Réglages",
     "copy_report": "📋 Copier le rapport IA",
     "error_title": "Erreur lors de la génération IA"

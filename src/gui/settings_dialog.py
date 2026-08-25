@@ -11,7 +11,8 @@ RAM_PROFILES = {
 }
 
 AI_PROVIDERS = [
-    ("openrouter", "OpenRouter (Universel — DeepSeek, Claude, Llama, GPT)"),
+    ("openrouter", "OpenRouter (Cloud — Modèles gratuits stealth/ox-alpha, DeepSeek, Claude)"),
+    ("ollama", "🏠 Ollama (100% Local & Hors-ligne — Zéro Internet / Privé)"),
     ("google", "Google Gemini (Gemini 2.0 Flash / Pro)"),
     ("openai", "OpenAI (GPT-4o / GPT-4o-mini)"),
     ("anthropic", "Anthropic (Claude 3.5 Sonnet / Haiku)"),
@@ -27,6 +28,14 @@ AI_MODEL_SUGGESTIONS = {
         "anthropic/claude-3.5-haiku",
         "openai/gpt-4o-mini",
     ],
+    "ollama": [
+        "llama3.2",
+        "mistral",
+        "qwen2.5:3b",
+        "gemma2:2b",
+        "phi3",
+        "deepseek-r1:8b",
+    ],
     "google": [
         "gemini-3.6-flash",
         "gemini-3.7-flash",
@@ -41,8 +50,11 @@ AI_MODEL_SUGGESTIONS = {
 
 AI_KEY_LINKS = {
     "openrouter": "https://openrouter.ai/keys",
+    "ollama": "https://ollama.com",
     "google": "https://aistudio.google.com/app/apikey",
     "openai": "https://platform.openai.com/api-keys",
+    "anthropic": "https://console.anthropic.com/settings/keys",
+}
     "anthropic": "https://console.anthropic.com/settings/keys",
 }
 
@@ -352,16 +364,17 @@ class SettingsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(frame, text=t.t("settings.ai_model") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
         self.ai_model_entry = ctk.CTkEntry(
             frame,
-            placeholder_text="ex: stealth/ox-alpha (recommandé gratuit), poolside/laguna-s-2.1:free, gemini-3.6-flash...",
+            placeholder_text="ex: stealth/ox-alpha, llama3.2, mistral, gemini-3.6-flash...",
             fg_color=theme["subcard"],
             border_color=theme["border"],
         )
-        cur_model = ai_cfg.get("model", "") or "stealth/ox-alpha"
+        cur_model = ai_cfg.get("model", "") or ("llama3.2" if cur_p == "ollama" else "stealth/ox-alpha")
         self.ai_model_entry.insert(0, cur_model)
         self.ai_model_entry.pack(fill="x", padx=10, pady=(0, 10))
 
-        # API Key
-        ctk.CTkLabel(frame, text=t.t("settings.ai_api_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"]).pack(anchor="w", padx=10, pady=(4, 4))
+        # API Key (Optional for Ollama)
+        self.ai_key_label = ctk.CTkLabel(frame, text=t.t("settings.ai_api_key") + " :", font=ctk.CTkFont(size=13, weight="bold"), text_color=theme["text"])
+        self.ai_key_label.pack(anchor="w", padx=10, pady=(4, 4))
         ai_k_row = ctk.CTkFrame(frame, fg_color="transparent")
         ai_k_row.pack(fill="x", padx=10, pady=(0, 8))
 
@@ -387,10 +400,10 @@ class SettingsDialog(ctk.CTkToplevel):
         )
         self.ai_eye_btn.pack(side="right")
 
-        # Get API key button
+        # Get API key / Download Ollama button
         self.ai_link_btn = ctk.CTkButton(
             frame,
-            text="🔑 " + t.t("settings.ai_get_key"),
+            text="🌐 Télécharger Ollama (ollama.com)" if cur_p == "ollama" else "🔑 " + t.t("settings.ai_get_key"),
             font=ctk.CTkFont(size=12),
             fg_color="#21262d",
             hover_color="#30363d",
@@ -409,29 +422,47 @@ class SettingsDialog(ctk.CTkToplevel):
             variable=self.ai_auto_var,
         ).pack(anchor="w", padx=10, pady=(6, 12))
 
-        # Privacy notice
-        p_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=6, border_width=1, border_color="#1f6feb")
-        p_card.pack(fill="x", padx=10, pady=(4, 10))
-        ctk.CTkLabel(
-            p_card,
-            text="🔒 " + t.t("settings.ai_privacy_note"),
+        # Privacy notice card
+        self.ai_privacy_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=6, border_width=1, border_color="#238636" if cur_p == "ollama" else "#1f6feb")
+        self.ai_privacy_card.pack(fill="x", padx=10, pady=(4, 10))
+        self.ai_privacy_label = ctk.CTkLabel(
+            self.ai_privacy_card,
+            text=self._get_privacy_note_text(cur_p),
             font=ctk.CTkFont(size=11),
-            text_color="#58a6ff",
+            text_color="#3fb950" if cur_p == "ollama" else "#58a6ff",
             wraplength=520,
             justify="left",
-        ).pack(padx=12, pady=10, anchor="w")
+        )
+        self.ai_privacy_label.pack(padx=12, pady=10, anchor="w")
+
+    def _get_privacy_note_text(self, provider_key):
+        if provider_key == "ollama":
+            return "🔒 Mode 100% Local & Hors-ligne (Ollama) :\nL'IA tourne directement sur votre ordinateur (CPU/GPU). Aucune connexion Internet, aucune clé API et aucune donnée n'est transmise à l'extérieur. Confidentialité totale garantie."
+        return "🌐 Mode Cloud (OpenRouter, Gemini, OpenAI, Claude) :\nSi vous préférez ne rien installer sur votre PC, le mode Cloud envoie uniquement un résumé textuel des métadonnées du scan (hachage, noms de sections) via une API HTTPS chiffrée. Le fichier physique lui-même n'est JAMAIS téléversé."
 
     def _on_ai_provider_change(self, choice):
         idx = self.provider_labels.index(choice) if choice in self.provider_labels else 0
         key = self.provider_keys[idx]
         default_for_key = {
             "openrouter": "stealth/ox-alpha",
+            "ollama": "llama3.2",
             "google": "gemini-3.6-flash",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-haiku-20241022",
         }.get(key, "")
-        if not self.ai_model_entry.get().strip():
-            self.ai_model_entry.insert(0, default_for_key)
+        self.ai_model_entry.delete(0, "end")
+        self.ai_model_entry.insert(0, default_for_key)
+
+        if key == "ollama":
+            self.ai_link_btn.configure(text="🌐 Télécharger Ollama (ollama.com)")
+            self.ai_key_label.configure(text="Clé API (Optionnelle pour Ollama) :")
+            self.ai_privacy_card.configure(border_color="#238636")
+            self.ai_privacy_label.configure(text=self._get_privacy_note_text("ollama"), text_color="#3fb950")
+        else:
+            self.ai_link_btn.configure(text="🔑 " + self.t.t("settings.ai_get_key"))
+            self.ai_key_label.configure(text=self.t.t("settings.ai_api_key") + " :")
+            self.ai_privacy_card.configure(border_color="#1f6feb")
+            self.ai_privacy_label.configure(text=self._get_privacy_note_text(key), text_color="#58a6ff")
 
     def _open_ai_key_link(self):
         choice = self.provider_menu.get()

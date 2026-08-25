@@ -15,6 +15,7 @@ except Exception:
 
 DEFAULT_MODELS = {
     "openrouter": "stealth/ox-alpha",
+    "ollama": "llama3.2",
     "google": "gemini-3.6-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-haiku-20241022",
@@ -29,6 +30,7 @@ OPENROUTER_FALLBACK_MODELS = [
 
 PROVIDER_URLS = {
     "openrouter": "https://openrouter.ai/api/v1/chat/completions",
+    "ollama": "http://localhost:11434/v1/chat/completions",
     "openai": "https://api.openai.com/v1/chat/completions",
     "anthropic": "https://api.anthropic.com/v1/messages",
 }
@@ -206,11 +208,58 @@ def query_ai_analyst(result, ai_config, lang="fr"):
     api_key = "".join(c for c in str(raw_api_key).strip().strip("'\"“”‘’") if 32 < ord(c) < 127)
     model = ai_config.get("model", "").strip() or DEFAULT_MODELS.get(provider, "stealth/ox-alpha")
 
-    if not api_key:
+    # Ollama is 100% local and does not require an API key
+    if provider != "ollama" and not api_key:
         raise ValueError("Clé API manquante ou invalide. Saisissez votre véritable clé API dans les Réglages ⚙ (ex: sk-or-v1-...).")
 
     system_prompt = build_system_prompt(lang)
     user_prompt = build_user_payload(result, lang)
+
+    # 0. Ollama (100% Local & Offline / Private)
+    if provider == "ollama":
+        url = PROVIDER_URLS.get("ollama", "http://localhost:11434/v1/chat/completions")
+        headers = {"Content-Type": "application/json"}
+        local_model = model or "llama3.2"
+        body = {
+            "model": local_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 1200,
+        }
+        try:
+            resp = requests.post(url, headers=headers, json=body, timeout=90)
+        except requests.exceptions.ConnectionError as exc:
+            if lang == "en":
+                raise RuntimeError(
+                    f"Cannot connect to Ollama on {url}.\n\n"
+                    "Ollama must be installed and running on your computer:\n"
+                    "1. Download Ollama: https://ollama.com\n"
+                    f"2. Start your model in a terminal: ollama run {local_model}\n"
+                    "3. Click 'Regenerate' in MalyxScanner."
+                ) from exc
+            raise RuntimeError(
+                f"Impossible de contacter Ollama sur {url}.\n\n"
+                "Ollama doit être installé et démarré sur votre ordinateur :\n"
+                "1. Téléchargez Ollama sur : https://ollama.com\n"
+                f"2. Lancez le modèle dans un terminal : ollama run {local_model}\n"
+                "3. Cliquez sur 'Régénérer' dans MalyxScanner."
+            ) from exc
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Erreur de communication avec Ollama : {exc}") from exc
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"Erreur Ollama ({resp.status_code}) : {resp.text}")
+
+        data = resp.json()
+        choices = data.get("choices", [])
+        if not choices:
+            raise RuntimeError(f"Réponse vide d'Ollama : {data}")
+        msg = choices[0].get("message", {})
+        raw_content = msg.get("content") or choices[0].get("text") or ""
+        return clean_ai_output(raw_content)
 
     # 1. OpenRouter
     if provider == "openrouter":

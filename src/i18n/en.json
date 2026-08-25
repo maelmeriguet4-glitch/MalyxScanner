@@ -311,12 +311,12 @@
   },
   "ai": {
     "generate_btn": "✨ Generate Deep AI Analysis",
-    "loading": "Generating report with Cybersecurity AI Analyst...",
-    "not_configured_title": "AI Cybersecurity Analyst Not Configured",
-    "not_configured_desc": "To get a tailored, dynamic explanation of this file's capabilities, enable the AI Analyst in Settings with an OpenRouter, Google Gemini, OpenAI or Anthropic key.",
+    "loading": "Generating incident brief with AI Analyst...",
+    "not_configured_title": "Cybersecurity AI Analyst not configured",
+    "not_configured_desc": "To generate an executive threat intelligence brief for this file, enable the AI Analyst in Settings. You have two options: 100% Local & Offline mode with Ollama (absolute privacy, zero Internet) or Encrypted Cloud mode (Free OpenRouter, Gemini, OpenAI, Claude).",
     "open_settings_btn": "⚙ Configure AI Analyst in Settings",
-    "copy_report": "📋 Copy AI report",
-    "error_title": "Error generating AI report"
+    "copy_report": "📋 Copy AI Report",
+    "error_title": "AI Generation Error"
   },
   "explainer": {
     "identity_title": "Understanding File Identity & Hashes",

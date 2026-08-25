@@ -68,20 +68,24 @@ Traditional signature-based antivirus solutions often miss newly packed droppers
 ### 5. Automated Triage & Incident Remediation
 * **Composite Risk Scoring (0–100)**: Evaluates structural anomalies, entropy distribution, and heuristics to assign clear verdicts (*Clean*, *Suspicious*, *Malicious*).
 * **Safe Quarantine**: Atomically isolates suspicious files into an access-restricted directory (`%APPDATA%\MalyxScanner\quarantine`) with neutralized permissions and `.malyx_quarantine` metadata preservation.
-* **Secure Deletion**: Offers irreversible disk shredding for confirmed threats.
-* **Optional SOC AI Analyst**: Integrates with OpenRouter, Gemini, OpenAI, or Claude to generate concise, human-readable executive incident briefings.
-* **Optional VirusTotal Verification**: Queries 70+ AV engines using only the file's SHA-256 hash (the file payload itself is never transmitted).
+* **Secure File Shredding**: Multi-pass physical data overwriting (`os.urandom` + zeroes + `fsync`) before unlinking confirmed threats.
+* **Optional SOC AI Analyst (Local or Cloud)**:
+  - **100% Local & Offline Mode (via [Ollama](https://ollama.com))**: Runs entirely on your CPU/GPU with models like `llama3.2`, `mistral`, or `qwen2.5`. Absolute privacy, zero API keys, and zero Internet connection required.
+  - **Encrypted Cloud Mode (OpenRouter, Gemini, OpenAI, Claude)**: Fast zero-install option that transmits only a textual metadata summary over an encrypted HTTPS connection (*the actual binary file is never uploaded*).
+* **Optional VirusTotal Verification**: Queries 70+ AV engines using only the file's SHA-256 hash (*the file payload itself is never transmitted*).
 
 ---
 
 ## Privacy & Offline-First Architecture
 
-| Asset | Processing Model | Network Destination |
-| :--- | :--- | :--- |
-| **File Contents & Data** | 100% Local (in-memory streaming) | **None (Never uploaded)** |
-| **SHA-256 Hash** | Optional (only when VirusTotal is explicitly queried) | VirusTotal API |
-| **AI Analyst Payload** | Optional (only when AI generation is triggered) | Configured LLM Endpoint |
-| **Telemetry & Tracking** | None | **Zero tracking / 100% Private** |
+| Feature | Execution Model | Network Destination | Privacy Level |
+| :--- | :--- | :--- | :--- |
+| **Core Static Scanning** | 100% Local (in-memory streaming) | **None (Air-gapped)** | 🛡️ Maximum (100% Offline) |
+| **Quarantine & File Shredding** | 100% Local (physical multi-pass wipe) | **None** | 🛡️ Maximum (100% Offline) |
+| **AI Analyst (Local - Ollama)** | 100% Local (`http://localhost:11434`) | **None (Zero Internet)** | 🛡️ Maximum (100% Offline) |
+| **AI Analyst (Cloud)** | Encrypted HTTPS (Metadata summary only) | Configured LLM Endpoint | 🔒 High (File is never sent) |
+| **VirusTotal Hash Lookup** | SHA-256 Hash query only | VirusTotal API | 🔒 High (File is never sent) |
+| **Telemetry & Tracking** | None | **None** | 🛡️ Zero tracking / 100% Private |
 
 ---
 
