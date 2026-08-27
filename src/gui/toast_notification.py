@@ -100,8 +100,8 @@ def calculate_geometry(
     width: int = TOAST_WIDTH,
     height: int = TOAST_HEIGHT,
 ) -> str:
-    """Calculates bottom-left screen position for the toast window."""
-    x = SCREEN_MARGIN_X
+    """Calculates bottom-right screen position for the toast window."""
+    x = max(10, screen_w - width - SCREEN_MARGIN_X)
     y = max(10, screen_h - height - TASKBAR_OFFSET_Y)
     return f"{width}x{height}+{x}+{y}"
 
@@ -196,109 +196,95 @@ class SentinelToast(_BaseToplevel):
             logger.debug("Binding warning: %s", exc)
 
     def _build_ui(self, score: int, threat_type: str) -> None:
-        """Constructs the visual components of the toast card."""
+        """Constructs the visual components of the toast card — minimalist design."""
         theme = self.theme_data
 
         if ctk is None:
             self._build_ui_tk(score, threat_type)
             return
 
-        # Outer card container
+        # Outer card — clean rounded container with colored left accent
         self.card = ctk.CTkFrame(
             self,
             fg_color=theme["bg"],
-            corner_radius=16,
+            corner_radius=14,
             border_width=2,
             border_color=theme["border"],
         )
         self.card.pack(fill="both", expand=True, padx=4, pady=4)
 
-        # --- Header ---
+        # --- Colored accent bar at top ---
+        accent_bar = ctk.CTkFrame(
+            self.card,
+            fg_color=theme["accent"],
+            corner_radius=0,
+            height=3,
+        )
+        accent_bar.pack(fill="x", padx=16, pady=(12, 0))
+
+        # --- Header: Icon + Title + Close ---
         header_frame = ctk.CTkFrame(self.card, fg_color="transparent")
-        header_frame.pack(fill="x", padx=12, pady=(10, 4))
+        header_frame.pack(fill="x", padx=14, pady=(8, 2))
 
-        # Icon badge
-        badge_box = ctk.CTkFrame(header_frame, fg_color=theme["badge_bg"], corner_radius=6)
-        badge_box.pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(
-            badge_box,
-            text=theme["icon"],
-            font=ctk.CTkFont(size=13),
-            width=24,
-            height=24,
-        ).pack(padx=2, pady=1)
-
-        # Title
         ctk.CTkLabel(
             header_frame,
-            text=theme["title"],
+            text=f"{theme['icon']}  {theme['title']}",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color=theme["title_color"],
         ).pack(side="left")
 
-        # Close button (X)
         self.close_btn = ctk.CTkButton(
             header_frame,
             text="✕",
-            width=22,
-            height=22,
-            corner_radius=11,
+            width=24,
+            height=24,
+            corner_radius=12,
             fg_color="transparent",
-            hover_color=theme["close_hover"],
-            text_color="#8B949E",
-            font=ctk.CTkFont(size=11, weight="bold"),
+            hover_color="#30363d",
+            text_color="#6e7681",
+            font=ctk.CTkFont(size=11),
             command=self.dismiss,
         )
         self.close_btn.pack(side="right")
 
-        # --- Body ---
+        # --- Body: File name + score ---
         body_frame = ctk.CTkFrame(self.card, fg_color="transparent")
-        body_frame.pack(fill="x", padx=12, pady=(2, 4))
+        body_frame.pack(fill="x", padx=16, pady=(2, 2))
 
-        # File name
         raw_name = self.file_path.name if self.file_path.name else "fichier_inconnu"
-        truncated_name = truncate_filename(raw_name, max_chars=34)
+        truncated_name = truncate_filename(raw_name, max_chars=38)
+
         ctk.CTkLabel(
             body_frame,
-            text=f"📄 {truncated_name}",
+            text=truncated_name,
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#F0F6FC",
             anchor="w",
         ).pack(fill="x")
 
-        # Threat label & score
+        # Score line — clean and minimal
         label_text = THREAT_LABELS.get(threat_type, "Menace Potentielle")
         ctk.CTkLabel(
             body_frame,
-            text=f"🏷️ {label_text} • Score : {score}/100",
+            text=f"{label_text}  ·  Score {score}/100",
             font=ctk.CTkFont(size=11),
-            text_color=theme["badge_fg"],
-            anchor="w",
-        ).pack(fill="x", pady=(2, 0))
-
-        # Action / Guidance prompt
-        guidance = "Ne pas exécuter. Cliquez ci-dessous pour analyser en profondeur."
-        ctk.CTkLabel(
-            body_frame,
-            text=guidance,
-            font=ctk.CTkFont(size=10),
             text_color="#8B949E",
             anchor="w",
         ).pack(fill="x", pady=(1, 0))
 
-        # --- Footer / Action Button ---
+        # --- Action Button — BIG, clean, impossible to miss ---
         footer_frame = ctk.CTkFrame(self.card, fg_color="transparent")
-        footer_frame.pack(fill="x", padx=12, pady=(6, 10))
+        footer_frame.pack(fill="x", padx=14, pady=(8, 12))
 
         self.action_btn = ctk.CTkButton(
             footer_frame,
-            text="🔍 N'hésitez pas à scanner sur MalyxScanner",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=theme["btn_bg"],
+            text="🛡️  Scanner avec MalyxScanner",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=theme["accent"],
             hover_color=theme["btn_hover"],
-            text_color=theme["btn_text"],
-            height=36,
-            corner_radius=10,
+            text_color="#FFFFFF",
+            height=38,
+            corner_radius=8,
             command=self._on_action_clicked,
         )
         self.action_btn.pack(fill="x")
