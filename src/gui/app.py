@@ -8,10 +8,20 @@ import customtkinter as ctk
 
 from core.analyzer import analyze_file
 from core.sentinel import SentinelWatcher
+from core.history import record_scan, get_history
 from .result_view import ResultView
 from .settings_dialog import SettingsDialog
+from .history_panel import HistoryPanel
 from .theme_manager import get_theme
 from .toast_notification import SentinelToast
+
+# System Tray support (optional — graceful fallback)
+try:
+    import pystray
+    from PIL import Image as PILImage
+    _HAS_TRAY = True
+except ImportError:
+    _HAS_TRAY = False
 
 logger = logging.getLogger("MalyxApp")
 
@@ -27,6 +37,10 @@ class MalyxApp:
         self.analyzing = False
         self.sentinel_watcher = None
         self._active_toast = None
+        self._tray_icon = None
+        self._tray_thread = None
+        self._minimized_to_tray = False
+        self.history_panel = None
 
         self.theme = get_theme(config.get("theme", "cyber_dark"))
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
@@ -113,6 +127,19 @@ class MalyxApp:
             command=lambda: self.export_report("json"),
         )
         self.hdr_export_json_btn.pack(side="left", padx=4)
+
+        self.hdr_history_btn = ctk.CTkButton(
+            toolbar,
+            text="📋 Historique",
+            width=120,
+            height=36,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            text_color=theme["text"],
+            command=self._toggle_history,
+        )
+        self.hdr_history_btn.pack(side="left", padx=4)
 
         settings_btn = ctk.CTkButton(
             toolbar,
@@ -302,6 +329,7 @@ class MalyxApp:
             else:
                 self.result = result
                 self._show_result(result)
+                record_scan(result, source="scan")
                 if self.config.get("sound_alert"):
                     try:
                         import winsound
@@ -452,6 +480,9 @@ class MalyxApp:
         auto_dismiss_sec = sentinel_cfg.get("auto_dismiss_sec", 10)
         auto_dismiss_ms = max(3000, min(60000, int(auto_dismiss_sec * 1000)))
 
+        # Record detection in history
+        record_scan(result, source="sentinel")
+
         try:
             self._active_toast = SentinelToast(
                 master=self.root,
@@ -527,6 +558,114 @@ class MalyxApp:
         self._reconfigure_sentinel(updated)
 
     def _on_close(self):
+        """
+        If Sentinel is active and pystray is available, minimize to System Tray.
+        Otherwise, quit the application entirely.
+        """
+        sentinel_cfg = self.config.get("sentinel", {})
+        sentinel_active = sentinel_cfg.get("enabled", True) and self.sentinel_watcher is not None
+
+        if sentinel_active and _HAS_TRAY:
+            self._minimize_to_tray()
+        else:
+            self._quit_app()
+
+    def _minimize_to_tray(self):
+        """Hides the main window and creates a System Tray icon."""
+        if self._minimized_to_tray:
+            return
+        self._minimized_to_tray = True
+
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+
+        if self._tray_icon is not None:
+            return
+
+        # Create tray icon image
+        try:
+            icon_candidates = [
+                Path(__file__).resolve().parents[1] / "assets" / "icon.ico",
+                Path(getattr(__import__("sys"), "_MEIPASS", "")) / "assets" / "icon.ico",
+            ]
+            icon_img = None
+            for c in icon_candidates:
+                if c.exists():
+                    icon_img = PILImage.open(str(c))
+                    break
+            if icon_img is None:
+                # Fallback: create a simple colored square
+                icon_img = PILImage.new("RGB", (64, 64), "#1f6feb")
+        except Exception:
+            icon_img = PILImage.new("RGB", (64, 64), "#1f6feb")
+
+        menu = pystray.Menu(
+            pystray.MenuItem("🛡️ Ouvrir MalyxScanner", self._restore_from_tray, default=True),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("❌ Quitter MalyxScanner", self._quit_from_tray),
+        )
+
+        self._tray_icon = pystray.Icon(
+            "MalyxScanner",
+            icon_img,
+            "MalyxScanner — Sentinelle active",
+            menu,
+        )
+
+        self._tray_thread = threading.Thread(
+            target=self._tray_icon.run,
+            name="MalyxTrayIcon",
+            daemon=True,
+        )
+        self._tray_thread.start()
+        logger.info("MalyxScanner minimized to System Tray. Sentinel continues monitoring.")
+
+    def _restore_from_tray(self, icon=None, item=None):
+        """Restores the main window from the System Tray."""
+        self._minimized_to_tray = False
+
+        # Stop tray icon
+        if self._tray_icon is not None:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
+
+        # Restore window on Tkinter main thread
+        try:
+            self.root.after(0, self._do_restore)
+        except Exception:
+            pass
+
+    def _do_restore(self):
+        """Restores the window (must run on Tkinter main thread)."""
+        try:
+            self.root.deiconify()
+            self.root.state("normal")
+            self.root.lift()
+            self.root.focus_force()
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(lambda: self.root.attributes("-topmost", False))
+        except Exception as exc:
+            logger.debug("Non-critical warning restoring window: %s", exc)
+
+    def _quit_from_tray(self, icon=None, item=None):
+        """Quit completely from tray menu."""
+        if self._tray_icon is not None:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
+        try:
+            self.root.after(0, self._quit_app)
+        except Exception:
+            pass
+
+    def _quit_app(self):
         """Gracefully terminates Sentinel watcher, dismisses active toasts, and destroys main window."""
         if self._active_toast is not None:
             try:
@@ -534,6 +673,13 @@ class MalyxApp:
             except Exception:
                 pass
             self._active_toast = None
+
+        if self._tray_icon is not None:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
 
         if self.sentinel_watcher is not None:
             try:
@@ -546,4 +692,46 @@ class MalyxApp:
             self.root.destroy()
         except Exception:
             pass
+
+    def _toggle_history(self):
+        """Toggles between the main scan view and the history panel."""
+        if self.history_panel is not None and self.history_panel.winfo_exists():
+            # Switch back to main view
+            self.history_panel.destroy()
+            self.history_panel = None
+            self.hdr_history_btn.configure(fg_color="#21262d")
+            if self.result:
+                self._show_result(self.result)
+            else:
+                self._show_waiting()
+            return
+
+        # Show history panel
+        for child in self.content.winfo_children():
+            child.destroy()
+
+        self.hdr_history_btn.configure(fg_color=self.theme["accent"])
+
+        self.history_panel = HistoryPanel(
+            master=self.content,
+            theme=self.theme,
+            translator=self.t,
+            on_rescan=self._rescan_from_history,
+        )
+        self.history_panel.pack(fill="both", expand=True)
+
+    def _rescan_from_history(self, file_path: str):
+        """Re-scans a file from the history panel."""
+        if self.analyzing:
+            return
+        p = Path(file_path)
+        if not p.exists():
+            messagebox.showwarning("Fichier introuvable", f"Le fichier suivant n'existe plus :\n{file_path}")
+            return
+        # Switch back to scan view
+        if self.history_panel is not None:
+            self.history_panel.destroy()
+            self.history_panel = None
+            self.hdr_history_btn.configure(fg_color="#21262d")
+        self.start_analysis(file_path)
 

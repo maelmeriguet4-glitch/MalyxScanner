@@ -144,7 +144,7 @@ class SettingsDialog(ctk.CTkToplevel):
         tabs.pack(side="top", fill="both", expand=True, padx=16, pady=(10, 6))
 
         tab_general = tabs.add(t.t("settings.tab_general"))
-        tab_sentinel = tabs.add(t.t("settings.tab_sentinel", "🛡️ Sentinelle"))
+        tab_sentinel = tabs.add(t.t("settings.tab_sentinel"))
         tab_perf = tabs.add(t.t("settings.tab_perf"))
         tab_ai = tabs.add("🤖 " + t.t("settings.tab_ai"))
         tab_vt = tabs.add(t.t("settings.tab_vt"))

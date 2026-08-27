@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import sys
 import tkinter as tk
 from typing import Callable, Optional, Union
 
@@ -21,11 +22,12 @@ except ImportError:
 logger = logging.getLogger("MalyxToast")
 
 # --- Layout & Dimension Constants ---
-TOAST_WIDTH: int = 380
-TOAST_HEIGHT: int = 165
+TOAST_WIDTH: int = 390
+TOAST_HEIGHT: int = 168
 TASKBAR_OFFSET_Y: int = 70
 SCREEN_MARGIN_X: int = 24
 DEFAULT_AUTO_DISMISS_MS: int = 10000
+TRANSPARENT_COLOR: str = "#000001"
 
 # --- Severity Palettes ---
 ALERT_THEMES = {
@@ -47,19 +49,19 @@ ALERT_THEMES = {
     },
     "suspicious": {
         "severity": "suspicious",
-        "accent": "#FF9800",          # Vivid Amber Orange
+        "accent": "#F59E0B",          # Amber Gold
         "bg": "#1E1E2E",
         "card_bg": "#252538",
-        "border": "#FF9800",
+        "border": "#F59E0B",
         "badge_bg": "#3D2B14",
-        "badge_fg": "#FFA726",
-        "title_color": "#FFA726",
+        "badge_fg": "#F59E0B",
+        "title_color": "#F59E0B",
         "icon": "⚠️",
         "title": "Fichier Suspect Détecté",
-        "btn_bg": "#FF9800",
-        "btn_hover": "#F57C00",
-        "btn_text": "#1E1E2E",
-        "close_hover": "#FFA726",
+        "btn_bg": "#B45309",          # Darker amber for high-contrast white text
+        "btn_hover": "#92400E",
+        "btn_text": "#FFFFFF",         # White text for maximum readability
+        "close_hover": "#F59E0B",
     },
 }
 
@@ -165,8 +167,18 @@ class SentinelToast(_BaseToplevel):
             self.withdraw()
             self.overrideredirect(True)
             self.attributes("-topmost", True)
-            if hasattr(self, "configure"):
-                self.configure(fg_color=self.theme_data["bg"])
+            if sys.platform == "win32":
+                try:
+                    self.attributes("-transparentcolor", TRANSPARENT_COLOR)
+                    if hasattr(self, "configure"):
+                        self.configure(fg_color=TRANSPARENT_COLOR)
+                except Exception as exc:
+                    logger.debug("Transparent colorkey setup failed: %s", exc)
+                    if hasattr(self, "configure"):
+                        self.configure(fg_color=self.theme_data["bg"])
+            else:
+                if hasattr(self, "configure"):
+                    self.configure(fg_color=self.theme_data["bg"])
         except Exception as exc:
             logger.debug("Toplevel attribute setup warning: %s", exc)
 
@@ -195,11 +207,11 @@ class SentinelToast(_BaseToplevel):
         self.card = ctk.CTkFrame(
             self,
             fg_color=theme["bg"],
-            corner_radius=12,
+            corner_radius=16,
             border_width=2,
             border_color=theme["border"],
         )
-        self.card.pack(fill="both", expand=True, padx=2, pady=2)
+        self.card.pack(fill="both", expand=True, padx=4, pady=4)
 
         # --- Header ---
         header_frame = ctk.CTkFrame(self.card, fg_color="transparent")
@@ -285,8 +297,8 @@ class SentinelToast(_BaseToplevel):
             fg_color=theme["btn_bg"],
             hover_color=theme["btn_hover"],
             text_color=theme["btn_text"],
-            height=32,
-            corner_radius=8,
+            height=36,
+            corner_radius=10,
             command=self._on_action_clicked,
         )
         self.action_btn.pack(fill="x")
@@ -295,7 +307,7 @@ class SentinelToast(_BaseToplevel):
         """Fallback Tkinter UI when CTk is not available."""
         theme = self.theme_data
         self.card = tk.Frame(self, bg=theme["bg"], highlightbackground=theme["border"], highlightthickness=2)
-        self.card.pack(fill="both", expand=True, padx=2, pady=2)
+        self.card.pack(fill="both", expand=True, padx=4, pady=4)
 
         header_frame = tk.Frame(self.card, bg=theme["bg"])
         header_frame.pack(fill="x", padx=12, pady=(10, 4))
