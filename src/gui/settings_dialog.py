@@ -1,8 +1,14 @@
 import webbrowser
+from tkinter import filedialog
 import customtkinter as ctk
 
 from i18n.translator import available_languages
 from .theme_manager import THEMES, available_themes, get_theme
+
+try:
+    from core.sentinel import get_default_downloads_dir
+except (ImportError, ValueError):
+    from ..core.sentinel import get_default_downloads_dir
 
 RAM_PROFILES = {
     "balanced": {"max_mb": 200, "block_kb": 16, "yara": True, "strings": True},
@@ -138,6 +144,7 @@ class SettingsDialog(ctk.CTkToplevel):
         tabs.pack(side="top", fill="both", expand=True, padx=16, pady=(10, 6))
 
         tab_general = tabs.add(t.t("settings.tab_general"))
+        tab_sentinel = tabs.add(t.t("settings.tab_sentinel", "🛡️ Sentinelle"))
         tab_perf = tabs.add(t.t("settings.tab_perf"))
         tab_ai = tabs.add("🤖 " + t.t("settings.tab_ai"))
         tab_vt = tabs.add(t.t("settings.tab_vt"))
@@ -146,16 +153,19 @@ class SettingsDialog(ctk.CTkToplevel):
         # --- 1. Tab General ---
         self._build_general_tab(tab_general, t, theme, cfg)
 
-        # --- 2. Tab Performance & RAM ---
+        # --- 2. Tab Sentinel ---
+        self._build_sentinel_tab(tab_sentinel, t, theme, cfg)
+
+        # --- 3. Tab Performance & RAM ---
         self._build_perf_tab(tab_perf, t, theme, cfg)
 
-        # --- 3. Tab AI Analyst ---
+        # --- 4. Tab AI Analyst ---
         self._build_ai_tab(tab_ai, t, theme, cfg)
 
-        # --- 4. Tab VirusTotal ---
+        # --- 5. Tab VirusTotal ---
         self._build_vt_tab(tab_vt, t, theme, cfg)
 
-        # --- 5. Tab Contact & Feedback ---
+        # --- 6. Tab Contact & Feedback ---
         self._build_contact_tab(tab_contact, t, theme, cfg)
 
     def _build_general_tab(self, parent, t, theme, cfg):
@@ -202,6 +212,271 @@ class SettingsDialog(ctk.CTkToplevel):
             progress_color=theme["accent"],
             variable=self.sound_switch_var,
         ).pack(anchor="w", padx=10, pady=10)
+
+    def _build_sentinel_tab(self, parent, t, theme, cfg):
+        frame = ctk.CTkScrollableFrame(parent, fg_color=theme["card"])
+        frame.pack(fill="both", expand=True, padx=4, pady=4)
+
+        sentinel_cfg = cfg.get("sentinel", {})
+        self.sentinel_enable_var = ctk.BooleanVar(value=bool(sentinel_cfg.get("enabled", True)))
+
+        # 1. Master Enable Banner Card
+        self.sentinel_header_card = ctk.CTkFrame(
+            frame,
+            fg_color=theme["subcard"],
+            corner_radius=8,
+            border_width=1,
+            border_color="#238636" if self.sentinel_enable_var.get() else theme["border"],
+        )
+        self.sentinel_header_card.pack(fill="x", padx=10, pady=(10, 10))
+
+        h_inner = ctk.CTkFrame(self.sentinel_header_card, fg_color="transparent")
+        h_inner.pack(fill="x", padx=14, pady=12)
+
+        self.sentinel_switch = ctk.CTkSwitch(
+            h_inner,
+            text=t.t("settings.sentinel_enable"),
+            font=ctk.CTkFont(size=14, weight="bold"),
+            progress_color=theme["accent"],
+            variable=self.sentinel_enable_var,
+            command=self._on_sentinel_switch_toggle,
+        )
+        self.sentinel_switch.pack(anchor="w")
+
+        ctk.CTkLabel(
+            h_inner,
+            text=t.t("settings.sentinel_desc"),
+            font=ctk.CTkFont(size=11),
+            text_color="#58a6ff",
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(6, 0))
+
+        # 2. Watched Directory Selection Card
+        dir_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=8, border_width=1, border_color=theme["border"])
+        dir_card.pack(fill="x", padx=10, pady=(0, 10))
+
+        d_inner = ctk.CTkFrame(dir_card, fg_color="transparent")
+        d_inner.pack(fill="x", padx=14, pady=12)
+
+        ctk.CTkLabel(
+            d_inner,
+            text="📁 " + t.t("settings.sentinel_watch_dir_title"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=theme["text"],
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            d_inner,
+            text=t.t("settings.sentinel_watch_dir_desc"),
+            font=ctk.CTkFont(size=11),
+            text_color=theme["subtext"],
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 8))
+
+        dir_row = ctk.CTkFrame(d_inner, fg_color="transparent")
+        dir_row.pack(fill="x", pady=(0, 4))
+
+        raw_dir = sentinel_cfg.get("watch_dir", "")
+        default_dir = str(get_default_downloads_dir())
+        display_dir = raw_dir if raw_dir else default_dir
+
+        self.sentinel_dir_entry = ctk.CTkEntry(
+            dir_row,
+            fg_color="#0d1117",
+            border_color=theme["border"],
+            font=ctk.CTkFont(size=12),
+        )
+        self.sentinel_dir_entry.insert(0, display_dir)
+        self.sentinel_dir_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        ctk.CTkButton(
+            dir_row,
+            text="📁 " + t.t("app.browse"),
+            width=100,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            command=self._browse_sentinel_dir,
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            dir_row,
+            text="🔄 " + t.t("settings.sentinel_reset_dir"),
+            width=80,
+            height=32,
+            font=ctk.CTkFont(size=12),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            command=self._reset_sentinel_dir,
+        ).pack(side="left")
+
+        # 3. RAM Limit & PC Performance Impact
+        ram_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=8, border_width=1, border_color=theme["border"])
+        ram_card.pack(fill="x", padx=10, pady=(0, 10))
+
+        r_inner = ctk.CTkFrame(ram_card, fg_color="transparent")
+        r_inner.pack(fill="x", padx=14, pady=12)
+
+        ctk.CTkLabel(
+            r_inner,
+            text="⚡ " + t.t("settings.sentinel_ram_title"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=theme["text"],
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            r_inner,
+            text=t.t("settings.sentinel_ram_desc"),
+            font=ctk.CTkFont(size=11),
+            text_color=theme["subtext"],
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 8))
+
+        self.sentinel_ram_options = [
+            "64 Mo (Économique — 4-8 Go RAM)",
+            "128 Mo (Standard — Recommandé)",
+            "256 Mo (Performance — 8-16 Go RAM)",
+            "512 Mo (Extrême — 16 Go+ RAM)",
+        ]
+        self.sentinel_ram_values = [64, 128, 256, 512]
+        self.sentinel_chunk_map = {64: 32, 128: 64, 256: 64, 512: 128}
+
+        self.sentinel_ram_menu = ctk.CTkOptionMenu(
+            r_inner,
+            values=self.sentinel_ram_options,
+            fg_color="#0d1117",
+            button_color=theme["accent"],
+            button_hover_color=theme["accent_hover"],
+            command=self._on_sentinel_ram_change,
+        )
+        cur_ram = sentinel_cfg.get("ram_limit_mb", 128)
+        ram_idx = self.sentinel_ram_values.index(cur_ram) if cur_ram in self.sentinel_ram_values else 1
+        self.sentinel_ram_menu.set(self.sentinel_ram_options[ram_idx])
+        self.sentinel_ram_menu.pack(fill="x", pady=(0, 10))
+
+        # Dynamic Warning Message Box
+        self.sentinel_warning_card = ctk.CTkFrame(
+            r_inner,
+            fg_color="#0d1117",
+            corner_radius=6,
+            border_width=1,
+            border_color="#238636",
+        )
+        self.sentinel_warning_card.pack(fill="x", pady=(2, 0))
+
+        self.sentinel_warning_label = ctk.CTkLabel(
+            self.sentinel_warning_card,
+            text="",
+            font=ctk.CTkFont(size=11),
+            wraplength=500,
+            justify="left",
+        )
+        self.sentinel_warning_label.pack(padx=12, pady=10, anchor="w")
+        self._update_sentinel_warning(cur_ram)
+
+        # 4. Toast Alert & Notification Settings Card
+        toast_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=8, border_width=1, border_color=theme["border"])
+        toast_card.pack(fill="x", padx=10, pady=(0, 10))
+
+        t_inner = ctk.CTkFrame(toast_card, fg_color="transparent")
+        t_inner.pack(fill="x", padx=14, pady=12)
+
+        self.sentinel_toast_var = ctk.BooleanVar(value=bool(sentinel_cfg.get("toast_alert", True)))
+        ctk.CTkSwitch(
+            t_inner,
+            text=t.t("settings.sentinel_toast_enable"),
+            font=ctk.CTkFont(size=13, weight="bold"),
+            progress_color=theme["accent"],
+            variable=self.sentinel_toast_var,
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            t_inner,
+            text=t.t("settings.sentinel_toast_desc"),
+            font=ctk.CTkFont(size=11),
+            text_color=theme["subtext"],
+            wraplength=520,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 10))
+
+        # Dismiss Slider
+        dismiss_val = int(sentinel_cfg.get("auto_dismiss_sec", 10))
+        self.sentinel_dismiss_label = ctk.CTkLabel(
+            t_inner,
+            text=f"⏱️ {t.t('settings.sentinel_dismiss_label')} : {dismiss_val} secondes",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=theme["text"],
+        )
+        self.sentinel_dismiss_label.pack(anchor="w", pady=(0, 4))
+
+        self.sentinel_dismiss_slider = ctk.CTkSlider(
+            t_inner,
+            from_=5,
+            to=30,
+            number_of_steps=25,
+            progress_color=theme["accent"],
+            button_color=theme["accent"],
+            command=self._on_dismiss_slider_change,
+        )
+        self.sentinel_dismiss_slider.set(dismiss_val)
+        self.sentinel_dismiss_slider.pack(fill="x", pady=(0, 4))
+
+    def _on_sentinel_switch_toggle(self):
+        enabled = self.sentinel_enable_var.get()
+        self.sentinel_header_card.configure(
+            border_color="#238636" if enabled else self.theme["border"]
+        )
+
+    def _browse_sentinel_dir(self):
+        cur = self.sentinel_dir_entry.get().strip() or str(get_default_downloads_dir())
+        chosen = filedialog.askdirectory(
+            initialdir=cur,
+            title="Sélectionner le dossier à surveiller par la Sentinelle",
+        )
+        if chosen:
+            self.sentinel_dir_entry.delete(0, "end")
+            self.sentinel_dir_entry.insert(0, chosen)
+
+    def _reset_sentinel_dir(self):
+        default_dir = str(get_default_downloads_dir())
+        self.sentinel_dir_entry.delete(0, "end")
+        self.sentinel_dir_entry.insert(0, default_dir)
+
+    def _on_sentinel_ram_change(self, choice):
+        idx = self.sentinel_ram_options.index(choice) if choice in self.sentinel_ram_options else 1
+        ram_mb = self.sentinel_ram_values[idx]
+        self._update_sentinel_warning(ram_mb)
+
+    def _update_sentinel_warning(self, ram_mb: int):
+        t = self.t
+        if ram_mb <= 64:
+            self.sentinel_warning_card.configure(border_color="#e3b341")
+            self.sentinel_warning_label.configure(
+                text=t.t("settings.sentinel_warn_low"),
+                text_color="#e3b341",
+            )
+        elif ram_mb <= 256:
+            self.sentinel_warning_card.configure(border_color="#238636")
+            self.sentinel_warning_label.configure(
+                text=t.t("settings.sentinel_warn_balanced"),
+                text_color="#3fb950",
+            )
+        else:
+            self.sentinel_warning_card.configure(border_color="#a371f7")
+            self.sentinel_warning_label.configure(
+                text=t.t("settings.sentinel_warn_high"),
+                text_color="#d2a8ff",
+            )
+
+    def _on_dismiss_slider_change(self, val):
+        sec = int(val)
+        self.sentinel_dismiss_label.configure(
+            text=f"⏱️ {self.t.t('settings.sentinel_dismiss_label')} : {sec} secondes"
+        )
 
     def _build_perf_tab(self, parent, t, theme, cfg):
         frame = ctk.CTkScrollableFrame(parent, fg_color=theme["card"])
@@ -644,6 +919,22 @@ class SettingsDialog(ctk.CTkToplevel):
 
         # Sound
         self.config_data["sound_alert"] = bool(self.sound_switch_var.get())
+
+        # Sentinel
+        sentinel = self.config_data.setdefault("sentinel", {})
+        sentinel["enabled"] = bool(self.sentinel_enable_var.get())
+        raw_watch = self.sentinel_dir_entry.get().strip()
+        default_dl = str(get_default_downloads_dir())
+        # Store empty string if pointing to default Downloads folder
+        sentinel["watch_dir"] = raw_watch if (raw_watch and raw_watch != default_dl) else ""
+
+        ram_choice = self.sentinel_ram_menu.get()
+        r_idx = self.sentinel_ram_options.index(ram_choice) if ram_choice in self.sentinel_ram_options else 1
+        ram_mb = self.sentinel_ram_values[r_idx]
+        sentinel["ram_limit_mb"] = ram_mb
+        sentinel["stream_chunk_kb"] = self.sentinel_chunk_map.get(ram_mb, 64)
+        sentinel["toast_alert"] = bool(self.sentinel_toast_var.get())
+        sentinel["auto_dismiss_sec"] = int(self.sentinel_dismiss_slider.get())
 
         # Performance
         perf = self.config_data.setdefault("performance", {})

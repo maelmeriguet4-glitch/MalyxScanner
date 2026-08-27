@@ -1,13 +1,19 @@
+import logging
 import queue
 import threading
+from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
 from core.analyzer import analyze_file
+from core.sentinel import SentinelWatcher
 from .result_view import ResultView
 from .settings_dialog import SettingsDialog
 from .theme_manager import get_theme
+from .toast_notification import SentinelToast
+
+logger = logging.getLogger("MalyxApp")
 
 
 class MalyxApp:
@@ -19,6 +25,8 @@ class MalyxApp:
         self.result = None
         self.queue = queue.Queue()
         self.analyzing = False
+        self.sentinel_watcher = None
+        self._active_toast = None
 
         self.theme = get_theme(config.get("theme", "cyber_dark"))
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
@@ -32,6 +40,8 @@ class MalyxApp:
         except Exception:
             pass
 
+        root.protocol("WM_DELETE_WINDOW", self._on_close)
+
         self._build_header()
         self._build_dropzone()
         self._build_status()
@@ -42,6 +52,8 @@ class MalyxApp:
         self._try_bind_dnd()
 
         root.after(100, self._poll_queue)
+        self._init_sentinel()
+
 
     def _build_header(self):
         theme = self.theme
@@ -384,6 +396,127 @@ class MalyxApp:
             on_saved=self._settings_saved,
         )
 
+    def _init_sentinel(self):
+        """Initializes and starts the SentinelWatcher daemon if enabled in configuration."""
+        sentinel_cfg = self.config.get("sentinel", {})
+        if not sentinel_cfg.get("enabled", True):
+            return
+
+        watch_dir = sentinel_cfg.get("watch_dir", "")
+        ram_limit_mb = sentinel_cfg.get("ram_limit_mb", 128)
+        stream_chunk_kb = sentinel_cfg.get("stream_chunk_kb", 64)
+        perf_cfg = self.config.get("performance", {})
+
+        try:
+            self.sentinel_watcher = SentinelWatcher(
+                watch_dir=watch_dir if watch_dir else None,
+                on_threat_detected=self._on_sentinel_threat_detected,
+                ram_limit_mb=ram_limit_mb,
+                stream_chunk_kb=stream_chunk_kb,
+                perf_config=perf_cfg,
+                enabled=True,
+            )
+            self.sentinel_watcher.start()
+            logger.info("Sentinel watcher started on directory: %s", self.sentinel_watcher.watch_dir)
+        except Exception as exc:
+            logger.error("Failed to initialize Sentinel watcher: %s", exc, exc_info=True)
+
+    def _on_sentinel_threat_detected(self, file_path: Path, result: dict):
+        """
+        Thread-safe bridge callback called by SentinelWatcher from background thread.
+        Dispatches UI creation safely onto the Tkinter main event loop.
+        """
+        try:
+            self.root.after(0, lambda: self._show_sentinel_toast(file_path, result))
+        except Exception as exc:
+            logger.error("Failed to dispatch sentinel toast to main thread: %s", exc)
+
+    def _show_sentinel_toast(self, file_path: Path, result: dict):
+        """
+        Displays the custom borderless Tkinter toast alert at the bottom-left of the screen.
+        Guarantees single active toast and respects user alert preferences.
+        """
+        sentinel_cfg = self.config.get("sentinel", {})
+        if not sentinel_cfg.get("toast_alert", True):
+            logger.info("Sentinel threat detected for %s, but toast alerts are disabled.", file_path)
+            return
+
+        # Dismiss previous active toast to prevent stacking
+        if self._active_toast is not None:
+            try:
+                self._active_toast.dismiss()
+            except Exception:
+                pass
+            self._active_toast = None
+
+        auto_dismiss_sec = sentinel_cfg.get("auto_dismiss_sec", 10)
+        auto_dismiss_ms = max(3000, min(60000, int(auto_dismiss_sec * 1000)))
+
+        try:
+            self._active_toast = SentinelToast(
+                master=self.root,
+                file_path=file_path,
+                scan_result=result,
+                on_open_scanner=self._on_toast_open_scanner,
+                auto_dismiss_ms=auto_dismiss_ms,
+            )
+            self._active_toast.show()
+
+            # Optional audio cue
+            if self.config.get("sound_alert", False):
+                try:
+                    import winsound
+                    winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.error("Failed to display SentinelToast: %s", exc, exc_info=True)
+
+    def _on_toast_open_scanner(self, file_path: Path):
+        """
+        Action callback triggered when user clicks '🔍 N'hésitez pas à scanner sur MalyxScanner'.
+        Restores MalyxScanner to the foreground and starts a detailed deep scan.
+        """
+        try:
+            self.root.deiconify()
+            self.root.state("normal")
+            self.root.lift()
+            self.root.focus_force()
+            self.root.attributes("-topmost", True)
+            self.root.after_idle(lambda: self.root.attributes("-topmost", False))
+        except Exception as exc:
+            logger.debug("Non-critical warning restoring window focus: %s", exc)
+
+        # Trigger comprehensive multi-engine analysis in MalyxScanner
+        try:
+            self.start_analysis(str(file_path))
+        except Exception as exc:
+            logger.error("Failed to start analysis on threat file %s: %s", file_path, exc, exc_info=True)
+
+    def _reconfigure_sentinel(self, updated_config: dict):
+        """Dynamically reconfigures or starts/stops Sentinel watcher when settings are saved."""
+        sentinel_cfg = updated_config.get("sentinel", {})
+        enabled = sentinel_cfg.get("enabled", True)
+
+        if not enabled:
+            if self.sentinel_watcher is not None and self.sentinel_watcher.is_running():
+                try:
+                    self.sentinel_watcher.stop(timeout=2.0)
+                except Exception as exc:
+                    logger.warning("Error stopping sentinel watcher: %s", exc)
+        else:
+            if self.sentinel_watcher is None:
+                self._init_sentinel()
+            else:
+                cfg_copy = dict(sentinel_cfg)
+                cfg_copy["perf_config"] = updated_config.get("performance", {})
+                try:
+                    self.sentinel_watcher.update_config(cfg_copy)
+                    if not self.sentinel_watcher.is_running():
+                        self.sentinel_watcher.start()
+                except Exception as exc:
+                    logger.error("Error updating sentinel watcher configuration: %s", exc, exc_info=True)
+
     def _settings_saved(self, updated):
         self.save_config(updated)
         self.config = updated
@@ -391,3 +524,26 @@ class MalyxApp:
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
         if hasattr(self, "current_view") and self.current_view and hasattr(self.current_view, "update_config"):
             self.current_view.update_config(updated)
+        self._reconfigure_sentinel(updated)
+
+    def _on_close(self):
+        """Gracefully terminates Sentinel watcher, dismisses active toasts, and destroys main window."""
+        if self._active_toast is not None:
+            try:
+                self._active_toast.dismiss()
+            except Exception:
+                pass
+            self._active_toast = None
+
+        if self.sentinel_watcher is not None:
+            try:
+                self.sentinel_watcher.stop(timeout=2.0)
+            except Exception as exc:
+                logger.warning("Error stopping Sentinel watcher during shutdown: %s", exc)
+            self.sentinel_watcher = None
+
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
+

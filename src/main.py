@@ -62,7 +62,15 @@ def main():
             pass
 
     app = MalyxApp(root, translator, config, save_config)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except KeyboardInterrupt:
+        if app.sentinel_watcher is not None:
+            try:
+                app.sentinel_watcher.stop(timeout=1.0)
+            except Exception:
+                pass
+
 
 
 if __name__ == "__main__":
