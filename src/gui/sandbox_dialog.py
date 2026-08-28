@@ -139,7 +139,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row,
-            text="🚀 Ouvrir les fonctionnalités Windows (Étape 1)",
+            text="🚀 Ouvrir les fonctionnalités Windows (Graphique)",
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#1f6feb",
             hover_color="#388bfd",
@@ -149,7 +149,17 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row,
-            text="📋 Copier la commande PowerShell (Alternative Admin)",
+            text="⚡ Activer automatiquement (PowerShell Admin 1-Clic)",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#238636",
+            hover_color="#2ea043",
+            height=36,
+            command=self._run_auto_enable_cmd,
+        ).pack(fill="x", pady=(0, 6))
+
+        ctk.CTkButton(
+            btn_row,
+            text="📋 Copier la commande PowerShell",
             font=ctk.CTkFont(size=11),
             fg_color="#21262d",
             hover_color="#30363d",
@@ -174,9 +184,15 @@ class SandboxGuideDialog(ctk.CTkToplevel):
         ).pack(side="right")
 
     def _open_optional_features(self):
-        """Launches the native Windows Optional Features dialogue directly."""
+        """Launches the native Windows Optional Features dialogue with UAC administrator elevation."""
         try:
-            subprocess.Popen(["optionalfeatures.exe"])
+            if os.name == "nt":
+                import ctypes
+                ret = ctypes.windll.shell32.ShellExecuteW(None, "runas", "optionalfeatures.exe", "", None, 1)
+                if int(ret) <= 32:
+                    subprocess.Popen(["powershell", "-Command", "Start-Process optionalfeatures.exe -Verb RunAs"])
+            else:
+                subprocess.Popen(["optionalfeatures.exe"])
         except Exception as exc:
             logger.error("Failed to launch optionalfeatures.exe: %s", exc)
             messagebox.showerror(
@@ -184,6 +200,19 @@ class SandboxGuideDialog(ctk.CTkToplevel):
                 f"Impossible d'ouvrir automatiquement les fonctionnalités Windows :\n{exc}\n\n"
                 "Ouvrez manuellement le menu Démarrer et tapez « Activer ou désactiver des fonctionnalités Windows ».",
             )
+
+    def _run_auto_enable_cmd(self):
+        """Opens an elevated PowerShell session that executes the Windows Sandbox enablement command."""
+        try:
+            if os.name == "nt":
+                import ctypes
+                cmd_arg = "-NoExit -Command Write-Host '=== Activation de Windows Sandbox ===' -ForegroundColor Cyan; Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All"
+                ctypes.windll.shell32.ShellExecuteW(None, "runas", "powershell.exe", cmd_arg, None, 1)
+            else:
+                messagebox.showinfo("Information", "Disponible uniquement sous Windows.")
+        except Exception as exc:
+            logger.error("Failed to run elevated PowerShell: %s", exc)
+            messagebox.showerror("Erreur", f"Impossible d'exécuter la commande : {exc}")
 
     def _copy_powershell_cmd(self):
         """Copies the PowerShell admin command to clipboard."""
