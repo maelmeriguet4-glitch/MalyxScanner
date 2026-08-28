@@ -29,9 +29,16 @@ class SandboxGuideDialog(ctk.CTkToplevel):
         self.title("⚡ Activation de Windows Sandbox")
         self.geometry("640x520")
         self.minsize(580, 480)
-        self.transient(master)
         self.configure(fg_color=self.theme.get("bg", "#0d1117"))
-        self.grab_set()
+        self.transient(master)
+        self.lift()
+        self.focus_force()
+        self.attributes("-topmost", True)
+        self.after(200, lambda: self.attributes("-topmost", False))
+        try:
+            self.grab_set()
+        except Exception:
+            pass
 
         self._build_ui()
 
