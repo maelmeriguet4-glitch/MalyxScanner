@@ -7,3 +7,6 @@ dist/
 config.local.json
 tests/samples/*
 !tests/samples/.gitkeep
+detection_history.json
+*.malyx_quarantine
+*.meta.json

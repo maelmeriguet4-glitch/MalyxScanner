@@ -67,7 +67,11 @@ Traditional signature-based antivirus solutions often miss newly packed droppers
 
 ### 5. Automated Triage & Incident Remediation
 * **Composite Risk Scoring (0–100)**: Evaluates structural anomalies, entropy distribution, and heuristics to assign clear verdicts (*Clean*, *Suspicious*, *Malicious*).
-* **Safe Quarantine**: Atomically isolates suspicious files into an access-restricted directory (`%APPDATA%\MalyxScanner\quarantine`) with neutralized permissions and `.malyx_quarantine` metadata preservation.
+* **Real-Time Sentinel Background Watcher**: Passive streaming memory-bounded watcher monitoring downloads, with bottom-right high-contrast toast notifications and System Tray persistence.
+* **1-Click Windows Sandbox Integration**: Dynamic `.wsb` isolated VM generation with read-only folder mounting, automatic Explorer opening, and built-in interactive activation guide.
+* **Safe Quarantine Manager with XOR Obfuscation**: Neutralizes threats with byte-level XOR scrambling (blinding host AVs against false positives), paired with a dedicated GUI management panel to inspect, restore bit-for-bit, or shred quarantined items.
+* **Persistent Detection History Engine**: Thread-safe, rolling 500-entry JSON detection log with instant re-scan capabilities.
+* **Windows DPAPI Credential Hardening**: Encrypts all stored API keys at rest using native Windows Data Protection API (`CryptProtectData`).
 * **Secure File Shredding**: Multi-pass physical data overwriting (`os.urandom` + zeroes + `fsync`) before unlinking confirmed threats.
 * **Optional SOC AI Analyst (Local or Cloud)**:
   - **100% Local & Offline Mode (via [Ollama](https://ollama.com))**: Runs entirely on your CPU/GPU with models like `llama3.2`, `mistral`, or `qwen2.5`. Absolute privacy, zero API keys, and zero Internet connection required.
@@ -81,7 +85,10 @@ Traditional signature-based antivirus solutions often miss newly packed droppers
 | Feature | Execution Model | Network Destination | Privacy Level |
 | :--- | :--- | :--- | :--- |
 | **Core Static Scanning** | 100% Local (in-memory streaming) | **None (Air-gapped)** | 🛡️ Maximum (100% Offline) |
-| **Quarantine & File Shredding** | 100% Local (physical multi-pass wipe) | **None** | 🛡️ Maximum (100% Offline) |
+| **Sentinel Real-Time Watcher** | 100% Local (streaming buffer) | **None** | 🛡️ Maximum (100% Offline) |
+| **Windows Sandbox 1-Click** | 100% Local (Isolated Hyper-V container) | **None** | 🛡️ Maximum (100% Offline) |
+| **Quarantine & File Shredding** | 100% Local (XOR obfuscation + multi-pass wipe) | **None** | 🛡️ Maximum (100% Offline) |
+| **Credential Storage** | Windows DPAPI local encryption | **None** | 🛡️ Maximum (100% Offline) |
 | **AI Analyst (Local - Ollama)** | 100% Local (`http://localhost:11434`) | **None (Zero Internet)** | 🛡️ Maximum (100% Offline) |
 | **AI Analyst (Cloud)** | Encrypted HTTPS (Metadata summary only) | Configured LLM Endpoint | 🔒 High (File is never sent) |
 | **VirusTotal Hash Lookup** | SHA-256 Hash query only | VirusTotal API | 🔒 High (File is never sent) |
@@ -113,9 +120,9 @@ python src/main.py
 ```
 
 ### Running Test Suite
-The automated test suite verifies static parsing, entropy math, threat classification, and quarantine mechanics:
+The automated test suite verifies static parsing, entropy math, threat classification, Sentinel streaming, quarantine lifecycle, and Sandbox generation:
 ```powershell
-python tests/test_analyzer.py
+python -m unittest discover -s tests
 ```
 
 ### Building Standalone Windows Executable
@@ -140,22 +147,28 @@ MalyxScanner/
 │   │   ├── entropy.py            # Shannon entropy calculation engine
 │   │   ├── filetype.py           # Magic bytes and MIME detection
 │   │   ├── hashes.py             # MD5, SHA-1, SHA-256, SHA-512, Imphash
+│   │   ├── history.py            # Persistent detection history engine
 │   │   ├── pe_analysis.py        # Windows PE header & MITRE parser
-│   │   ├── remediation.py        # Safe quarantine and secure deletion
+│   │   ├── remediation.py        # Safe XOR quarantine and secure deletion
 │   │   ├── risk_score.py         # Heuristic composite risk scoring
+│   │   ├── sandbox.py            # Windows Sandbox 1-click generator & launcher
+│   │   ├── sentinel.py           # Real-time background watcher daemon
 │   │   ├── strings_extractor.py  # IOC and string extraction
 │   │   ├── threat_classifier.py  # Threat family taxonomy
 │   │   ├── virustotal.py         # Cloud hash reputation client
 │   │   └── yara_scanner.py       # YARA rule scanning engine
 │   ├── gui/
 │   │   ├── app.py                # Main application window & top toolbar
+│   │   ├── history_panel.py      # Detection history GUI panel
+│   │   ├── quarantine_panel.py   # Quarantine management GUI panel
 │   │   ├── result_view.py        # Multi-tab analysis dashboard
+│   │   ├── sandbox_dialog.py     # Windows Sandbox interactive activation guide
 │   │   ├── settings_dialog.py    # Configuration and profile settings
-│   │   └── theme_manager.py      # Cyber dark / High contrast themes
+│   │   ├── theme_manager.py      # Cyber dark / High contrast themes
+│   │   └── toast_notification.py # Minimalist bottom-right toast alerts
 │   ├── i18n/                     # Bilingual support (FR / EN)
 │   └── main.py                   # Application entry point
-├── tests/
-│   └── test_analyzer.py          # Unit & regression test suite (27 tests)
+├── tests/                        # Automated unit & integration test suite (58 tests)
 └── README.md
 ```
 
