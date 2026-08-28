@@ -123,7 +123,13 @@ def list_quarantined_files() -> List[Dict]:
                     with open(entry.path, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     
-                    q_file = os.path.join(qdir, data.get("quarantine_file", ""))
+                    # Ensure 'id' is always present even on legacy entries
+                    qid = data.get("id")
+                    if not qid:
+                        qid = entry.name[:-10]
+                        data["id"] = qid
+
+                    q_file = os.path.join(qdir, data.get("quarantine_file", f"{qid}.malyx_quarantine"))
                     if os.path.isfile(q_file):
                         data["quarantine_path"] = q_file
                         data["meta_path"] = entry.path
@@ -146,7 +152,8 @@ def restore_quarantined_file(quarantine_id: str, custom_target_path: Optional[st
     3. Deletes the quarantine and meta files.
     """
     qdir = get_quarantine_dir()
-    meta_path = os.path.join(qdir, f"{quarantine_id}.meta.json")
+    meta_name = quarantine_id if quarantine_id.endswith(".meta.json") else f"{quarantine_id}.meta.json"
+    meta_path = os.path.join(qdir, meta_name)
 
     if not os.path.isfile(meta_path):
         return False, "Métadonnées de quarantaine introuvables."
@@ -155,7 +162,8 @@ def restore_quarantined_file(quarantine_id: str, custom_target_path: Optional[st
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
 
-        q_file_name = meta.get("quarantine_file", "")
+        qid = meta.get("id") or (meta_name[:-10] if meta_name.endswith(".meta.json") else meta_name)
+        q_file_name = meta.get("quarantine_file", f"{qid}.malyx_quarantine")
         q_path = os.path.join(qdir, q_file_name)
 
         if not os.path.isfile(q_path):
@@ -192,7 +200,8 @@ def delete_quarantined_file(quarantine_id: str) -> Tuple[bool, str]:
     Permanently shreds and deletes a quarantined file and its metadata.
     """
     qdir = get_quarantine_dir()
-    meta_path = os.path.join(qdir, f"{quarantine_id}.meta.json")
+    meta_name = quarantine_id if quarantine_id.endswith(".meta.json") else f"{quarantine_id}.meta.json"
+    meta_path = os.path.join(qdir, meta_name)
 
     if not os.path.isfile(meta_path):
         return False, "Métadonnées de quarantaine introuvables."
@@ -201,7 +210,8 @@ def delete_quarantined_file(quarantine_id: str) -> Tuple[bool, str]:
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
 
-        q_file_name = meta.get("quarantine_file", "")
+        qid = meta.get("id") or (meta_name[:-10] if meta_name.endswith(".meta.json") else meta_name)
+        q_file_name = meta.get("quarantine_file", f"{qid}.malyx_quarantine")
         q_path = os.path.join(qdir, q_file_name)
 
         # Shred and remove quarantined payload
@@ -210,6 +220,10 @@ def delete_quarantined_file(quarantine_id: str) -> Tuple[bool, str]:
 
         # Remove metadata
         if os.path.isfile(meta_path):
+            try:
+                os.chmod(meta_path, stat.S_IWRITE | stat.S_IREAD)
+            except Exception:
+                pass
             os.remove(meta_path)
 
         logger.info("Permanently deleted quarantined file: %s", quarantine_id)
@@ -222,20 +236,29 @@ def delete_quarantined_file(quarantine_id: str) -> Tuple[bool, str]:
 
 def purge_all_quarantine() -> Tuple[int, int]:
     """
-    Purges all files currently in quarantine. Returns (deleted_count, failed_count).
+    Purges all files directly from the quarantine directory. Returns (deleted_count, failed_count).
     """
-    items = list_quarantined_files()
+    qdir = get_quarantine_dir()
     deleted = 0
     failed = 0
-
-    for item in items:
-        qid = item.get("id")
-        if qid:
-            success, _ = delete_quarantined_file(qid)
-            if success:
-                deleted += 1
-            else:
-                failed += 1
+    try:
+        for entry in os.scandir(qdir):
+            if entry.is_file() and (entry.name.endswith(".malyx_quarantine") or entry.name.endswith(".meta.json")):
+                try:
+                    try:
+                        os.chmod(entry.path, stat.S_IWRITE | stat.S_IREAD)
+                    except Exception:
+                        pass
+                    if entry.name.endswith(".malyx_quarantine"):
+                        delete_file_permanently(entry.path)
+                        deleted += 1
+                    elif entry.name.endswith(".meta.json"):
+                        os.remove(entry.path)
+                except Exception as exc:
+                    logger.error("Failed to remove %s: %s", entry.path, exc)
+                    failed += 1
+    except Exception as exc:
+        logger.error("Failed scanning quarantine dir during purge: %s", exc)
 
     return deleted, failed
 
