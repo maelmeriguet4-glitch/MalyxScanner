@@ -883,7 +883,7 @@ class SettingsDialog(ctk.CTkToplevel):
         # License & Project info card
         info_card = ctk.CTkFrame(frame, fg_color=theme["subcard"], corner_radius=8, border_width=1, border_color=theme["border"])
         info_card.pack(fill="x", padx=10, pady=(0, 10))
-        info_text = f"🛡️ MalyxScanner v2.1.3 — {t.t('settings.vibe_desc')}\nCréé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces."
+        info_text = f"🛡️ MalyxScanner v3.0.0 — {t.t('settings.vibe_desc')}\nCréé avec passion pour protéger les ordinateurs et sensibiliser aux cybermenaces."
         ctk.CTkLabel(
             info_card,
             text=info_text,

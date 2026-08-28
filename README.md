@@ -8,7 +8,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="https://microsoft.com"><img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows" alt="Platform: Windows"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python" alt="Python: 3.11+"></a>
-  <a href="https://github.com/maelmeriguet4-glitch/MalyxScanner/releases/tag/v2.1.3"><img src="https://img.shields.io/badge/release-v2.1.3-blueviolet.svg" alt="Release: v2.1.3"></a>
+  <a href="https://github.com/maelmeriguet4-glitch/MalyxScanner/releases/tag/v3.0.0"><img src="https://img.shields.io/badge/release-v3.0.0-blueviolet.svg" alt="Release: v3.0.0"></a>
   <a href="#privacy--data-handling-transparency"><img src="https://img.shields.io/badge/privacy-100%25%20Local-success.svg" alt="Privacy: 100% Local"></a>
   <a href="#test-suite--validation"><img src="https://img.shields.io/badge/tests-58%20passing-brightgreen.svg" alt="Tests: 58 Passing"></a>
 </p>
