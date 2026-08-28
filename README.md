@@ -31,15 +31,23 @@ Traditional signature-based antivirus solutions often miss newly packed droppers
 <p align="center">
   <img src="assets/preview_malware_detection.png" alt="Malware Detection & Quarantine Actions" width="95%">
   <br>
-  <i><b>Figure 1</b>: Live malware detection (95/100 Malicious verdict) with instant Quarantine and Permanent Deletion remediation actions.</i>
+  <i><b>Figure 1</b>: Live malware detection dashboard with 1-Click Windows Sandbox launch, XOR Quarantine, and Secure File Shredding.</i>
 </p>
 
 <p align="center">
-  <img src="assets/preview_clean_file.png" alt="Clean File Analysis" width="48%">
+  <img src="assets/preview_quarantine_panel.png" alt="Quarantine Vault Management" width="48%">
   &nbsp;
-  <img src="assets/preview_home.png" alt="Home Screen - Drag & Drop" width="48%">
+  <img src="assets/preview_history_panel.png" alt="Detection History Dashboard" width="48%">
   <br>
-  <i><b>Figure 2</b>: Clean file verification (left) and drag & drop desktop landing interface (right).</i>
+  <i><b>Figure 2</b>: Dedicated Quarantine Vault with XOR payload neutralization (left) and persistent Detection History dashboard (right).</i>
+</p>
+
+<p align="center">
+  <img src="assets/preview_windows_sandbox_dialog.png" alt="Windows Sandbox Activation Guide" width="48%">
+  &nbsp;
+  <img src="assets/preview_minimalist_toast.png" alt="Minimalist Toast Alert" width="48%">
+  <br>
+  <i><b>Figure 3</b>: Windows Sandbox 1-Click interactive setup wizard (left) and non-intrusive Sentinel real-time toast alert (right).</i>
 </p>
 
 ---
