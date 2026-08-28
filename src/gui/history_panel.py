@@ -54,6 +54,8 @@ class HistoryPanel(ctk.CTkFrame):
 
     def _build_header(self):
         theme = self.theme
+        is_en = self.t and getattr(self.t, "lang", "fr") == "en"
+
         header = ctk.CTkFrame(self, fg_color=theme.get("card", "#161b22"), corner_radius=10)
         header.pack(fill="x", padx=16, pady=(12, 6))
 
@@ -62,7 +64,7 @@ class HistoryPanel(ctk.CTkFrame):
 
         ctk.CTkLabel(
             h_inner,
-            text="📋 Historique des Détections",
+            text="📋 Detection History" if is_en else "📋 Historique des Détections",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=theme.get("text", "#e6edf3"),
         ).pack(side="left")
@@ -77,7 +79,7 @@ class HistoryPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             h_inner,
-            text="🗑️ Effacer l'historique",
+            text="🗑️ Clear History" if is_en else "🗑️ Effacer l'historique",
             width=140,
             height=30,
             font=ctk.CTkFont(size=11),
@@ -89,7 +91,7 @@ class HistoryPanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             h_inner,
-            text="🔄 Actualiser",
+            text="🔄 Refresh" if is_en else "🔄 Actualiser",
             width=100,
             height=30,
             font=ctk.CTkFont(size=11),
@@ -113,13 +115,25 @@ class HistoryPanel(ctk.CTkFrame):
         for child in self.scroll_frame.winfo_children():
             child.destroy()
 
+        is_en = self.t and getattr(self.t, "lang", "fr") == "en"
         entries = get_history().get_all()
-        self.count_label.configure(text=f"({len(entries)} entrée{'s' if len(entries) != 1 else ''})")
+
+        if is_en:
+            count_str = f"({len(entries)} entr{'ies' if len(entries) != 1 else 'y'})"
+        else:
+            count_str = f"({len(entries)} entrée{'s' if len(entries) != 1 else ''})"
+
+        self.count_label.configure(text=count_str)
 
         if not entries:
+            empty_msg = (
+                "No detection recorded yet.\nScan results and Sentinel alerts will appear here."
+                if is_en
+                else "Aucune détection enregistrée pour le moment.\nLes résultats de vos scans et alertes Sentinelle apparaîtront ici."
+            )
             ctk.CTkLabel(
                 self.scroll_frame,
-                text="Aucune détection enregistrée pour le moment.\nLes résultats de vos scans et alertes Sentinelle apparaîtront ici.",
+                text=empty_msg,
                 font=ctk.CTkFont(size=13),
                 text_color=self.theme.get("subtext", "#8b949e"),
                 justify="center",
@@ -127,9 +141,9 @@ class HistoryPanel(ctk.CTkFrame):
             return
 
         for entry in entries:
-            self._render_entry(entry)
+            self._render_entry(entry, is_en=is_en)
 
-    def _render_entry(self, entry: dict):
+    def _render_entry(self, entry: dict, is_en: bool = False):
         theme = self.theme
         verdict = entry.get("verdict", "clean")
         color = VERDICT_COLORS.get(verdict, "#8b949e")
@@ -151,7 +165,7 @@ class HistoryPanel(ctk.CTkFrame):
         left = ctk.CTkFrame(inner, fg_color="transparent")
         left.pack(side="left", fill="x", expand=True)
 
-        file_name = entry.get("file_name", "inconnu")
+        file_name = entry.get("file_name", "unknown" if is_en else "inconnu")
         score = entry.get("risk_score", 0)
 
         ctk.CTkLabel(
@@ -164,9 +178,16 @@ class HistoryPanel(ctk.CTkFrame):
 
         # Details row
         threat_type = entry.get("threat_type", "")
-        source_label = "🛡️ Sentinelle" if entry.get("source") == "sentinel" else "🔍 Scan manuel"
+        if is_en:
+            source_label = "🛡️ Sentinel" if entry.get("source") == "sentinel" else "🔍 Manual Scan"
+        else:
+            source_label = "🛡️ Sentinelle" if entry.get("source") == "sentinel" else "🔍 Scan manuel"
+
         size_mb = entry.get("file_size", 0) / (1024 * 1024)
-        size_str = f"{size_mb:.1f} Mo" if size_mb >= 1 else f"{entry.get('file_size', 0) / 1024:.0f} Ko"
+        if is_en:
+            size_str = f"{size_mb:.1f} MB" if size_mb >= 1 else f"{entry.get('file_size', 0) / 1024:.0f} KB"
+        else:
+            size_str = f"{size_mb:.1f} Mo" if size_mb >= 1 else f"{entry.get('file_size', 0) / 1024:.0f} Ko"
 
         detail_parts = [source_label, f"Score: {score}/100", size_str]
         if threat_type and threat_type != "clean":
@@ -178,39 +199,42 @@ class HistoryPanel(ctk.CTkFrame):
             font=ctk.CTkFont(size=10),
             text_color=theme.get("subtext", "#8b949e"),
             anchor="w",
-        ).pack(fill="x")
+        ).pack(fill="x", pady=(2, 0))
 
         # Right side: timestamp + rescan button
         right = ctk.CTkFrame(inner, fg_color="transparent")
-        right.pack(side="right")
+        right.pack(side="right", padx=(8, 0))
 
-        # Format timestamp
-        ts_raw = entry.get("timestamp", "")
-        try:
-            dt = datetime.fromisoformat(ts_raw)
-            ts_display = dt.strftime("%d/%m/%Y %H:%M")
-        except (ValueError, TypeError):
-            ts_display = ts_raw[:16] if ts_raw else ""
+        timestamp = entry.get("timestamp", "")
+        if timestamp:
+            try:
+                dt = datetime.fromisoformat(timestamp)
+                ts_display = dt.strftime("%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                ts_display = str(timestamp)[:16]
+        else:
+            ts_display = ""
 
         ctk.CTkLabel(
             right,
             text=ts_display,
             font=ctk.CTkFont(size=10),
             text_color=theme.get("subtext", "#8b949e"),
-        ).pack(anchor="e")
+        ).pack(side="left", padx=(0, 8))
 
         file_path = entry.get("file_path", "")
         if file_path and self.on_rescan:
             ctk.CTkButton(
                 right,
-                text="🔄 Re-scan",
+                text="Re-scan" if is_en else "Re-scanner",
                 width=80,
-                height=24,
-                font=ctk.CTkFont(size=10),
+                height=26,
+                font=ctk.CTkFont(size=11),
                 fg_color="#21262d",
                 hover_color="#30363d",
+                text_color=theme.get("text", "#e6edf3"),
                 command=lambda p=file_path: self.on_rescan(p),
-            ).pack(anchor="e", pady=(4, 0))
+            ).pack(side="left")
 
     def _on_clear(self):
         get_history().clear()

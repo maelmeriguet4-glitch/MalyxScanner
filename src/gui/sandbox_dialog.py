@@ -22,11 +22,14 @@ logger = logging.getLogger("MalyxSandboxDialog")
 class SandboxGuideDialog(ctk.CTkToplevel):
     """Modern modal window guiding the user to activate Windows Sandbox."""
 
-    def __init__(self, master, theme: dict = None, **kwargs):
+    def __init__(self, master, theme: dict = None, translator=None, **kwargs):
         super().__init__(master, **kwargs)
         self.theme = theme or get_theme("cyber_dark")
+        self.t = translator
 
-        self.title("⚡ Activation de Windows Sandbox")
+        is_en = self.t and getattr(self.t, "lang", "fr") == "en"
+
+        self.title("⚡ Windows Sandbox Activation" if is_en else "⚡ Activation de Windows Sandbox")
         self.geometry("640x520")
         self.minsize(580, 480)
         self.configure(fg_color=self.theme.get("bg", "#0d1117"))
@@ -40,9 +43,9 @@ class SandboxGuideDialog(ctk.CTkToplevel):
         except Exception:
             pass
 
-        self._build_ui()
+        self._build_ui(is_en=is_en)
 
-    def _build_ui(self):
+    def _build_ui(self, is_en: bool = False):
         theme = self.theme
 
         # Top Header
@@ -54,14 +57,14 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             h_inner,
-            text="⚡ Activation de Windows Sandbox",
+            text="⚡ Windows Sandbox Activation" if is_en else "⚡ Activation de Windows Sandbox",
             font=ctk.CTkFont(size=18, weight="bold"),
             text_color=theme.get("text", "#e6edf3"),
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             h_inner,
-            text="Testez vos fichiers suspects dans un environnement virtuel 100% isolé et sécurisé.",
+            text="Test your suspicious files in a 100% isolated and safe virtual container." if is_en else "Testez vos fichiers suspects dans un environnement virtuel 100% isolé et sécurisé.",
             font=ctk.CTkFont(size=12),
             text_color="#58a6ff",
         ).pack(anchor="w", pady=(2, 0))
@@ -78,7 +81,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             s_inner,
-            text="ℹ️ La fonctionnalité « Bac à sable Windows » n'est pas encore activée.",
+            text="ℹ️ The « Windows Sandbox » feature is not yet enabled." if is_en else "ℹ️ La fonctionnalité « Bac à sable Windows » n'est pas encore activée.",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color="#e3b341",
             anchor="w",
@@ -86,7 +89,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             s_inner,
-            text="Votre système est compatible (Windows 11 Pro). Il vous suffit de cocher une case dans les fonctionnalités Windows pour l'activer.",
+            text="Your system is compatible (Windows 11 Pro). Simply check the box in Windows Features to enable it." if is_en else "Votre système est compatible (Windows 11 Pro). Il vous suffit de cocher une case dans les fonctionnalités Windows pour l'activer.",
             font=ctk.CTkFont(size=11),
             text_color="#f0f6fc",
             wraplength=520,
@@ -102,17 +105,24 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             st_inner,
-            text="📋 Procédure simple en 3 étapes :",
+            text="📋 Quick 3-Step Procedure:" if is_en else "📋 Procédure simple en 3 étapes :",
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color=theme.get("text", "#e6edf3"),
             anchor="w",
         ).pack(fill="x", pady=(0, 8))
 
-        steps = [
-            ("1.", "Cliquez sur le bouton bleu ci-dessous pour ouvrir la fenêtre des fonctionnalités Windows."),
-            ("2.", "Dans la liste qui s'affiche, faites défiler et cochez la case : « Bac à sable Windows » (ou « Windows Sandbox »)."),
-            ("3.", "Cliquez sur OK et redémarrez votre ordinateur quand Windows vous le demande."),
-        ]
+        if is_en:
+            steps = [
+                ("1.", "Click the blue button below to open the native Windows Features dialog."),
+                ("2.", "Scroll down the list and check the box: « Windows Sandbox »."),
+                ("3.", "Click OK and restart your computer when prompted by Windows."),
+            ]
+        else:
+            steps = [
+                ("1.", "Cliquez sur le bouton bleu ci-dessous pour ouvrir la fenêtre des fonctionnalités Windows."),
+                ("2.", "Dans la liste qui s'affiche, faites défiler et cochez la case : « Bac à sable Windows » (ou « Windows Sandbox »)."),
+                ("3.", "Cliquez sur OK et redémarrez votre ordinateur quand Windows vous le demande."),
+            ]
 
         for num, desc in steps:
             row = ctk.CTkFrame(st_inner, fg_color="transparent")
@@ -139,7 +149,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row,
-            text="🚀 Ouvrir les fonctionnalités Windows (Graphique)",
+            text="🚀 Open Windows Features (Graphical UI)" if is_en else "🚀 Ouvrir les fonctionnalités Windows (Graphique)",
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#1f6feb",
             hover_color="#388bfd",
@@ -149,7 +159,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row,
-            text="⚡ Activer automatiquement (PowerShell Admin 1-Clic)",
+            text="⚡ Enable Automatically (PowerShell Admin 1-Click)" if is_en else "⚡ Activer automatiquement (PowerShell Admin 1-Clic)",
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#238636",
             hover_color="#2ea043",
@@ -159,7 +169,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             btn_row,
-            text="📋 Copier la commande PowerShell",
+            text="📋 Copy PowerShell Command" if is_en else "📋 Copier la commande PowerShell",
             font=ctk.CTkFont(size=11),
             fg_color="#21262d",
             hover_color="#30363d",
@@ -174,7 +184,7 @@ class SandboxGuideDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             bottom,
-            text="Fermer",
+            text="Close" if is_en else "Fermer",
             width=120,
             height=36,
             font=ctk.CTkFont(size=12),

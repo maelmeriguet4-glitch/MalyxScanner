@@ -59,9 +59,11 @@ class QuarantinePanel(ctk.CTkFrame):
         h_inner = ctk.CTkFrame(header, fg_color="transparent")
         h_inner.pack(fill="x", padx=14, pady=10)
 
+        is_en = self.t and getattr(self.t, "lang", "fr") == "en"
+
         ctk.CTkLabel(
             h_inner,
-            text="🛡️ Espace de Quarantaine",
+            text="🛡️ Quarantine Vault" if is_en else "🛡️ Espace de Quarantaine",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=theme.get("text", "#e6edf3"),
         ).pack(side="left")
@@ -76,8 +78,8 @@ class QuarantinePanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             h_inner,
-            text="🗑️ Vider la quarantaine",
-            width=150,
+            text="🗑️ Purge All" if is_en else "🗑️ Vider la quarantaine",
+            width=140,
             height=30,
             font=ctk.CTkFont(size=11),
             fg_color="#21262d",
@@ -88,7 +90,7 @@ class QuarantinePanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             h_inner,
-            text="🔄 Actualiser",
+            text="🔄 Refresh" if is_en else "🔄 Actualiser",
             width=100,
             height=30,
             font=ctk.CTkFont(size=11),
@@ -111,13 +113,25 @@ class QuarantinePanel(ctk.CTkFrame):
         for child in self.scroll_frame.winfo_children():
             child.destroy()
 
+        is_en = self.t and getattr(self.t, "lang", "fr") == "en"
         items = list_quarantined_files()
-        self.count_label.configure(text=f"({len(items)} élément{'s' if len(items) != 1 else ''} neutralisé{'s' if len(items) != 1 else ''})")
+
+        if is_en:
+            count_str = f"({len(items)} neutralized item{'s' if len(items) != 1 else ''})"
+        else:
+            count_str = f"({len(items)} élément{'s' if len(items) != 1 else ''} neutralisé{'s' if len(items) != 1 else ''})"
+
+        self.count_label.configure(text=count_str)
 
         if not items:
+            empty_msg = (
+                "🛡️ No files currently in quarantine.\n\nSuspicious or dangerous files you isolate will be neutralized and listed here."
+                if is_en
+                else "🛡️ Aucun fichier en quarantaine.\n\nLes fichiers suspects ou dangereux que vous isolez seront neutralisés et listés ici."
+            )
             ctk.CTkLabel(
                 self.scroll_frame,
-                text="🛡️ Aucun fichier en quarantaine.\n\nLes fichiers suspects ou dangereux que vous isolez seront neutralisés et listés ici.",
+                text=empty_msg,
                 font=ctk.CTkFont(size=13),
                 text_color=self.theme.get("subtext", "#8b949e"),
                 justify="center",
@@ -125,9 +139,9 @@ class QuarantinePanel(ctk.CTkFrame):
             return
 
         for item in items:
-            self._render_item(item)
+            self._render_item(item, is_en=is_en)
 
-    def _render_item(self, item: dict):
+    def _render_item(self, item: dict, is_en: bool = False):
         theme = self.theme
         score = item.get("scan_metadata", {}).get("risk", {}).get("score", 0)
         verdict = item.get("scan_metadata", {}).get("risk", {}).get("verdict", "malicious")
@@ -150,7 +164,7 @@ class QuarantinePanel(ctk.CTkFrame):
         left = ctk.CTkFrame(inner, fg_color="transparent")
         left.pack(side="left", fill="x", expand=True)
 
-        original_name = item.get("original_name", "fichier_inconnu")
+        original_name = item.get("original_name", "unknown_file" if is_en else "fichier_inconnu")
         ctk.CTkLabel(
             left,
             text=f"🔒 {original_name}",
@@ -160,21 +174,27 @@ class QuarantinePanel(ctk.CTkFrame):
         ).pack(fill="x")
 
         orig_path = item.get("original_path", "")
+        loc_label = "Original Location" if is_en else "Emplacement d'origine"
         ctk.CTkLabel(
             left,
-            text=f"Emplacement d'origine : {orig_path}",
+            text=f"{loc_label} : {orig_path}",
             font=ctk.CTkFont(size=10),
             text_color=theme.get("subtext", "#8b949e"),
             anchor="w",
         ).pack(fill="x", pady=(2, 0))
 
         size_kb = item.get("file_size", 0) / 1024
-        size_str = f"{size_kb / 1024:.1f} Mo" if size_kb >= 1024 else f"{size_kb:.0f} Ko"
+        size_str = f"{size_kb / 1024:.1f} MB" if size_kb >= 1024 else f"{size_kb:.0f} KB"
         q_date = item.get("quarantined_at", "")
 
+        status_str = (
+            f"Quarantined : {q_date}  •  Size : {size_str}  •  Status : Neutralized (XOR Encrypted)"
+            if is_en
+            else f"Isolé le : {q_date}  •  Taille : {size_str}  •  Statut : Neutralisé (Chiffré XOR)"
+        )
         ctk.CTkLabel(
             left,
-            text=f"Isolé le : {q_date}  •  Taille : {size_str}  •  Statut : Neutralisé (Chiffré XOR)",
+            text=status_str,
             font=ctk.CTkFont(size=10),
             text_color="#3fb950",
             anchor="w",
@@ -188,7 +208,7 @@ class QuarantinePanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             right,
-            text="🔄 Restaurer",
+            text="🔄 Restore" if is_en else "🔄 Restaurer",
             width=100,
             height=28,
             font=ctk.CTkFont(size=11),
@@ -200,7 +220,7 @@ class QuarantinePanel(ctk.CTkFrame):
 
         ctk.CTkButton(
             right,
-            text="🗑️ Supprimer",
+            text="🗑️ Delete" if is_en else "🗑️ Supprimer",
             width=100,
             height=28,
             font=ctk.CTkFont(size=11),
