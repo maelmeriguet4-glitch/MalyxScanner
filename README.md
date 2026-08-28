@@ -9,20 +9,24 @@
   <a href="https://microsoft.com"><img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?logo=windows" alt="Platform: Windows"></a>
   <a href="https://python.org"><img src="https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python" alt="Python: 3.11+"></a>
   <a href="https://github.com/maelmeriguet4-glitch/MalyxScanner/releases/tag/v2.1.3"><img src="https://img.shields.io/badge/release-v2.1.3-blueviolet.svg" alt="Release: v2.1.3"></a>
-  <a href="#privacy--offline-first-architecture"><img src="https://img.shields.io/badge/privacy-100%25%20Local-success.svg" alt="Privacy: 100% Local"></a>
+  <a href="#privacy--data-handling-transparency"><img src="https://img.shields.io/badge/privacy-100%25%20Local-success.svg" alt="Privacy: 100% Local"></a>
+  <a href="#test-suite--validation"><img src="https://img.shields.io/badge/tests-58%20passing-brightgreen.svg" alt="Tests: 58 Passing"></a>
 </p>
 
 <p align="center">
-  <b>High-performance offline static malware analysis engine and incident response triage desktop utility.</b>
+  <b>A local malware triage and static analysis desktop utility for suspicious files on Windows.</b>
 </p>
+
+> [!IMPORTANT]
+> **Role & Positioning**: MalyxScanner is a static analysis and incident triage tool designed to **complement, not replace**, traditional antivirus software or enterprise endpoint detection and response (EDR) solutions. It evaluates structural file properties without executing untrusted binaries.
 
 ---
 
-## Overview
+## 📌 Overview
 
-**MalyxScanner** is an open-source static malware analysis and file triage utility for Windows. It evaluates binary structure, cryptographic signatures, chunked Shannon entropy, Indicators of Compromise (IOCs), and YARA rule matches to classify potential threats without executing the target payload.
+**MalyxScanner** is an open-source desktop triage tool that provides security analysts, incident responders, and power users with deep, structural inspection of suspicious files. It extracts PE headers, verifies Authenticode signatures, measures chunked Shannon entropy, flags Indicators of Compromise (IOCs), matches embedded YARA rules, and assists with 1-click Windows Sandbox isolation.
 
-Traditional signature-based antivirus solutions often miss newly packed droppers and custom stealth payloads. MalyxScanner inspects structural indicators in depth to detect packers, anomalous write+execute memory sections, unverified binaries, and evasive behaviors.
+Traditional signature-based antivirus solutions often alert after execution or remove files silently. MalyxScanner gives operators full transparency over *why* a file is suspicious, providing structural evidence without running the payload.
 
 ---
 
@@ -52,59 +56,163 @@ Traditional signature-based antivirus solutions often miss newly packed droppers
 
 ---
 
-## Technical Capabilities
+## 🎯 Threat Model & Scope
+
+### What MalyxScanner is Designed For:
+* **Local Triage of Suspicious Files**: Rapidly inspecting unverified downloads, attachments, or scripts.
+* **Static Binary & Script Inspection**: Parsing PE headers, sections, imports, exports, and embedded commands.
+* **Preliminary Incident Investigation**: Extracting network IOCs, registry persistence keys, and obfuscated strings.
+* **Assisting Analysts with Structural Evidence**: Providing clear, interpretable indicators to make informed decisions.
+
+### What MalyxScanner is NOT:
+* **Not an Antivirus / EDR Replacement**: It does not replace real-time behavioral kernel drivers or enterprise EDR solutions.
+* **No Safety Guarantees**: A file marked *Clean* is not guaranteed to be 100% safe (e.g., zero-day exploits or unmapped techniques).
+* **No Malicious Certitude**: A file marked *Suspicious* is not necessarily malware (heuristics may trigger on legitimate packed code).
+* **No Runtime Observation**: Static analysis cannot detect payloads injected dynamically into memory post-execution.
+* **AI Output is Advisory**: AI-generated summaries are assistive and must not be treated as a definitive classification.
+
+---
+
+## ⚖️ Understanding the Risk Score & Evidence
+
+The **Risk Score (0–100)** is a heuristic indicator designed to help prioritize files for further investigation. It is **not** a mathematical percentage probability of infection.
+
+```text
+Example Analysis Output:
+─────────────────────────────────────────────────────────────
+Verdict:    SUSPICIOUS
+Risk Score: 72 / 100
+
+Evidence:
+  • YARA rule match: Suspicious_PowerShell_Dropper
+  • High entropy observed in .rsrc section (7.82 / 8.0)
+  • Unsigned executable (Authenticode certificate missing)
+  • Suspicious administrative commands detected in strings
+─────────────────────────────────────────────────────────────
+```
+
+### Risk Factors Evaluated:
+1. **YARA Signatures**: Known malware families, ransomware notes, and common offensive tooling patterns.
+2. **PE Anomalies**: Dangerous section permissions (e.g., `IMAGE_SCN_MEM_WRITE | IMAGE_SCN_MEM_EXECUTE`), TLS callbacks, timestamp discrepancies.
+3. **Shannon Entropy (16 KB Chunks)**: Identifies packed, encrypted, or compressed payloads hiding within resource sections or overlays.
+4. **MITRE ATT&CK Mapping**: Imported Windows APIs linked to process injection, privilege escalation, or persistence.
+5. **IOC & String Patterns**: Extracted public IPv4 addresses, URLs, encoded PowerShell commands, and registry keys.
+
+> **Principle**: No single indicator alone proves that a file is malicious. Results should always be interpreted alongside the underlying evidence.
+
+---
+
+## ⚠️ False Positives & Limitations
+
+Heuristic engines can produce false positives. Legitimate software may trigger elevated risk scores if it contains:
+* **Commercial or Open-Source Packers**: UPX, Themida, VMProtect, or PyInstaller wrappers.
+* **Administrative Tools**: PowerShell scripts, IT management utilities, or remote access agents.
+* **Game Modifications & Anti-Cheat**: Hooking libraries or obfuscated binaries.
+
+If an unknown file is flagged as *Suspicious*, verify its digital signature, review the extracted strings, or test it inside the built-in **Windows Sandbox**.
+
+---
+
+## ⚙️ Technical Capabilities
 
 ### 1. Static PE & Binary Inspection
 * **Authenticode Verification**: Validates WinTrust digital certificates and flags unsigned or self-signed executables.
-* **Section Analysis & Anomaly Detection**: Highlights dangerous memory section permission combinations (such as `IMAGE_SCN_MEM_WRITE | IMAGE_SCN_MEM_EXECUTE`).
-* **MITRE ATT&CK API Mapping**: Maps imported Windows system APIs against known malicious techniques (Process Injection, Persistence, Evasion, Token Manipulation, C2 Communications).
-* **Forensic Metadata**: Extracts PDB debug paths, timestamp anomalies, compilation metadata, Subsystem, and `StringFileInfo`.
+* **Section Analysis & Anomaly Detection**: Detects writable+executable memory sections and unusual section names.
+* **MITRE ATT&CK API Mapping**: Maps imported APIs against known adversary techniques (Token Impersonation, Process Hollowing, C2).
+* **Forensic Metadata**: Extracts PDB debug paths, compilation timestamps, Subsystem, and `StringFileInfo`.
 
 ### 2. Shannon Entropy & Packer Detection
-* **Global & Block-Level Entropy**: Calculates byte randomness across 16 KB chunks to pinpoint hidden, encrypted, or packed payloads within resource sections or overlay data.
-* **Packing Signatures**: Recognizes UPX, VMProtect, Themida, and custom packer compression structures.
+* **Global & Block-Level Entropy**: Calculates byte randomness across 16 KB chunks to pinpoint hidden payloads.
+* **Packer Signatures**: Detects UPX, VMProtect, Themida, and custom packer compression structures.
 
 ### 3. Forensic IOC & Pattern Extraction
 * **Network Indicators**: Extracts public IPv4 addresses, hostnames, and suspicious protocol URLs (`http://`, `https://`, `ftp://`).
-* **System Footprints**: Detects persistence registry keys (`CurrentVersion\Run`, services) and administrative commands (`powershell -enc`, `vssadmin delete shadows`, `certutil -urlcache`).
+* **System Footprints**: Detects persistence registry keys (`CurrentVersion\Run`, services) and commands (`powershell -enc`, `vssadmin delete shadows`).
 * **Universal File Support**: Analyzes 12 distinct file families (Executables, Office documents, Archives, Scripts, PDF, System binaries, Source code, Game assets, Media).
 
-### 4. YARA Signature Matching
-* Embedded standard rules for high-profile malware families, ransomware notes, and common offensive tooling.
-* Extensible rule repository via custom `.yar` definitions in the `rules/` directory.
+### 4. Real-Time Sentinel Background Watcher
+* **Passive Monitoring**: Monitors the Downloads directory using memory-bounded streaming without locking files or competing with host antivirus.
+* **System Tray Persistence**: Stays active in the Windows notification area (`pystray`) when the main window is closed.
+* **Minimalist Toast Alerts**: High-contrast, non-intrusive alerts positioned at the bottom-right of the screen.
 
-### 5. Automated Triage & Incident Remediation
-* **Composite Risk Scoring (0–100)**: Evaluates structural anomalies, entropy distribution, and heuristics to assign clear verdicts (*Clean*, *Suspicious*, *Malicious*).
-* **Real-Time Sentinel Background Watcher**: Passive streaming memory-bounded watcher monitoring downloads, with bottom-right high-contrast toast notifications and System Tray persistence.
-* **1-Click Windows Sandbox Integration**: Dynamic `.wsb` isolated VM generation with read-only folder mounting, automatic Explorer opening, and built-in interactive activation guide.
-* **Safe Quarantine Manager with XOR Obfuscation**: Neutralizes threats with byte-level XOR scrambling (blinding host AVs against false positives), paired with a dedicated GUI management panel to inspect, restore bit-for-bit, or shred quarantined items.
-* **Persistent Detection History Engine**: Thread-safe, rolling 500-entry JSON detection log with instant re-scan capabilities.
-* **Windows DPAPI Credential Hardening**: Encrypts all stored API keys at rest using native Windows Data Protection API (`CryptProtectData`).
-* **Secure File Shredding**: Multi-pass physical data overwriting (`os.urandom` + zeroes + `fsync`) before unlinking confirmed threats.
-* **Optional SOC AI Analyst (Local or Cloud)**:
-  - **100% Local & Offline Mode (via [Ollama](https://ollama.com))**: Runs entirely on your CPU/GPU with models like `llama3.2`, `mistral`, or `qwen2.5`. Absolute privacy, zero API keys, and zero Internet connection required.
-  - **Encrypted Cloud Mode (OpenRouter, Gemini, OpenAI, Claude)**: Fast zero-install option that transmits only a textual metadata summary over an encrypted HTTPS connection (*the actual binary file is never uploaded*).
-* **Optional VirusTotal Verification**: Queries 70+ AV engines using only the file's SHA-256 hash (*the file payload itself is never transmitted*).
+### 5. 1-Click Windows Sandbox Integration
+* **Dynamic VM Generation**: Generates ephemeral `.wsb` configuration profiles mounting the target folder in strict read-only mode (`<ReadOnly>true</ReadOnly>`).
+* **Interactive Setup Wizard**: Built-in activation guide with automatic administrator (UAC) elevation handling.
+
+### 6. Safe Quarantine Vault & Secure Deletion
+* **Symmetric XOR Obfuscation**: Quarantined files are neutralized on disk (`%APPDATA%\MalyxScanner\quarantine`) with byte-level XOR scrambling to prevent accidental execution and host antivirus deletion.
+* **Dedicated Management GUI**: Inspect metadata, restore files bit-for-bit, or execute file shredding.
+* **Secure File Shredding**: Multi-pass data overwriting (`os.urandom` + zeros + `fsync`) before unlinking confirmed threats.
 
 ---
 
-## Privacy & Offline-First Architecture
+## 🔒 Privacy & Data Handling Transparency
 
-| Feature | Execution Model | Network Destination | Privacy Level |
+MalyxScanner is built on an **offline-first** architecture. The core scanning engine, entropy calculators, YARA scanner, and quarantine vault execute 100% locally in memory.
+
+| Feature | Execution Model | Data Sent to Internet? | Privacy Level |
 | :--- | :--- | :--- | :--- |
-| **Core Static Scanning** | 100% Local (in-memory streaming) | **None (Air-gapped)** | 🛡️ Maximum (100% Offline) |
-| **Sentinel Real-Time Watcher** | 100% Local (streaming buffer) | **None** | 🛡️ Maximum (100% Offline) |
+| **Core Static Scanning** | 100% Local (In-memory streaming) | **None** | 🛡️ Maximum (100% Offline) |
+| **YARA Rule Engine** | 100% Local (Embedded rules) | **None** | 🛡️ Maximum (100% Offline) |
+| **Sentinel Background Watcher** | 100% Local (Streaming buffer) | **None** | 🛡️ Maximum (100% Offline) |
 | **Windows Sandbox 1-Click** | 100% Local (Isolated Hyper-V container) | **None** | 🛡️ Maximum (100% Offline) |
-| **Quarantine & File Shredding** | 100% Local (XOR obfuscation + multi-pass wipe) | **None** | 🛡️ Maximum (100% Offline) |
+| **Quarantine & File Shredding** | 100% Local (XOR scrambling + wipe) | **None** | 🛡️ Maximum (100% Offline) |
 | **Credential Storage** | Windows DPAPI local encryption | **None** | 🛡️ Maximum (100% Offline) |
-| **AI Analyst (Local - Ollama)** | 100% Local (`http://localhost:11434`) | **None (Zero Internet)** | 🛡️ Maximum (100% Offline) |
-| **AI Analyst (Cloud)** | Encrypted HTTPS (Metadata summary only) | Configured LLM Endpoint | 🔒 High (File is never sent) |
-| **VirusTotal Hash Lookup** | SHA-256 Hash query only | VirusTotal API | 🔒 High (File is never sent) |
+| **Local AI Analyst (Ollama)** | 100% Local (`http://localhost:11434`) | **None** | 🛡️ Maximum (100% Offline) |
+| **Cloud AI Analyst (Optional)** | Encrypted HTTPS (Metadata text only) | **Textual summary only** | 🔒 High (File is never sent) |
+| **VirusTotal Lookup (Optional)**| SHA-256 Hash query only | **SHA-256 hash only** | 🔒 High (File is never sent) |
 | **Telemetry & Tracking** | None | **None** | 🛡️ Zero tracking / 100% Private |
 
+> [!WARNING]
+> **Confidential Files & External Services**: Do not submit file hashes or metadata to third-party services (VirusTotal, Cloud LLMs) if you are analyzing confidential, proprietary, personal, or classified files.
+
 ---
 
-## Installation & Usage
+## 🤖 AI SOC Analyst Clarification
+
+MalyxScanner includes an optional AI triage brief generator designed to assist with summarizing technical indicators:
+* **100% Local Mode (Recommended - via [Ollama](https://ollama.com))**: Runs entirely on your local hardware using models such as `llama3.2`, `mistral`, or `qwen2.5`. Zero data leaves your computer.
+* **Encrypted Cloud Mode (OpenRouter, Gemini, OpenAI, Claude)**: Sends only a textual metadata summary over an encrypted HTTPS connection (*the actual binary file is never transmitted*).
+* **Disclaimer**: AI outputs are assistive interpretations and may occasionally contain inaccuracies. They should always be verified against the static evidence.
+
+---
+
+## 🗄️ Quarantine & Secure Deletion Specifics
+
+### Quarantine Vault Mechanism
+* Quarantined files are moved to `%APPDATA%\MalyxScanner\quarantine` and scrambled using a multi-byte XOR stream cipher.
+* **Purpose**: This format prevents accidental double-click execution and prevents host antivirus engines from deleting files from the triage folder.
+* **Note**: XOR obfuscation is designed for execution neutralization and is not equivalent to military-grade cryptographic protection.
+
+### Secure File Deletion Nuance
+* File overwriting is performed on a best-effort basis using multi-pass pseudo-random bytes (`os.urandom`), zero-byte overwriting, and `os.fsync`.
+* **Hardware Note**: The effectiveness of software-based secure deletion may vary depending on flash storage controllers, wear-leveling algorithms on modern SSDs, and underlying filesystem semantics.
+
+---
+
+## 🛡️ Security & Responsible Use
+
+* **Privilege Separation**: Avoid running MalyxScanner with elevated administrator privileges unless performing tasks that strictly require it.
+* **System Hygiene**: Keep Windows updates and your primary antivirus / endpoint protection up to date.
+* **Isolated Testing**: For high-risk binaries, always leverage the 1-click **Windows Sandbox** integration or an isolated, air-gapped virtual machine.
+* **Vulnerability Reporting**: If you discover a security vulnerability in MalyxScanner, please report it privately via email to [maelmeriguet4@proton.me](mailto:maelmeriguet4@proton.me).
+
+---
+
+## 🧪 Test Suite & Validation
+
+MalyxScanner includes an automated unit and integration test suite covering static parsers, entropy calculations, threat classifiers, Sentinel streaming, quarantine lifecycle, and Sandbox generation:
+
+```powershell
+# Run the complete test suite
+python -m unittest discover -s tests
+```
+
+> **Testing Note**: The 58 automated tests validate internal parser accuracy, stability, and engine logic. They demonstrate software reliability but do not, by themselves, represent a universal benchmark against live, evolving zero-day malware.
+
+---
+
+## 🚀 Installation & Usage
 
 ### Prerequisites
 * Windows 10 / 11 (64-bit)
@@ -127,26 +235,20 @@ pip install -r requirements.txt
 python src/main.py
 ```
 
-### Running Test Suite
-The automated test suite verifies static parsing, entropy math, threat classification, Sentinel streaming, quarantine lifecycle, and Sandbox generation:
-```powershell
-python -m unittest discover -s tests
-```
-
-### Building Standalone Windows Executable
-To compile an isolated standalone `.exe` using PyInstaller:
+### Compiling Standalone Executable
+To build the standalone `.exe` using PyInstaller:
 ```powershell
 pyinstaller --noconfirm MalyxScanner.spec
 ```
-The compiled output is located in `dist/MalyxScanner/MalyxScanner.exe`.
+The compiled output is placed in `dist/MalyxScanner/MalyxScanner.exe`.
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 MalyxScanner/
-├── assets/                  # Application icons and branding assets
+├── assets/                  # Application icons, logos, and preview screenshots
 ├── rules/                   # Embedded YARA detection rules
 ├── src/
 │   ├── core/
@@ -182,7 +284,7 @@ MalyxScanner/
 
 ---
 
-## Contact & Feedback
+## 📬 Contact & Feedback
 
 * **Maintainer**: Mael Meriguet
 * **Email**: [maelmeriguet4@proton.me](mailto:maelmeriguet4@proton.me?subject=[MalyxScanner]%20Inquiry%20/%20Feedback)
@@ -190,6 +292,6 @@ MalyxScanner/
 
 ---
 
-## License
+## 📄 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
