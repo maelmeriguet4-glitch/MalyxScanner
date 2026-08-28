@@ -1,0 +1,57 @@
+name: Release Build & Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-and-release:
+    name: Build Windows Binary & Create Release
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Run Test Suite
+        run: |
+          python -m unittest discover -s tests
+
+      - name: Build Standalone Executable
+        run: |
+          pyinstaller --noconfirm --clean --windowed --icon=assets/icon.ico --add-data "assets;assets" --add-data "src/i18n;src/i18n" --paths src --hidden-import pystray --hidden-import pystray._win32 --name MalyxScanner src/main.py
+
+      - name: Package ZIP Archive
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zipName = "MalyxScanner-$tag-Windows.zip"
+          Compress-Archive -Path "dist\MalyxScanner\*" -DestinationPath "$zipName" -Force
+          Write-Host "Created archive: $zipName"
+
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "MalyxScanner ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            MalyxScanner-*-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
