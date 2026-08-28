@@ -155,8 +155,8 @@ class TestTier1FeatureCoverage(unittest.TestCase):
 
         watcher.start()
         try:
-            # Drop EICAR file
-            eicar_file = create_test_file(self.watch_path, "eicar_test.com", EICAR.encode("ascii"))
+            # Drop suspicious script file
+            threat_file = create_test_file(self.watch_path, "suspicious_script.vbs", SUSPICIOUS_SCRIPT)
 
             # Wait for callback
             triggered = self.threat_event_signal.wait(timeout=3.0)
@@ -164,17 +164,17 @@ class TestTier1FeatureCoverage(unittest.TestCase):
             self.assertGreaterEqual(len(self.threat_events), 1, "At least one threat event must be captured")
 
             detected_path, scan_result = self.threat_events[0]
-            self.assertEqual(detected_path.name, "eicar_test.com")
+            self.assertEqual(detected_path.name, "suspicious_script.vbs")
             self.assertIn("risk", scan_result)
             self.assertGreaterEqual(
                 scan_result["risk"].get("score", 0),
                 20,
-                "EICAR risk score must be >= 20",
+                "Threat risk score must be >= 20",
             )
             self.assertIn(
                 scan_result["risk"].get("verdict"),
                 ("suspicious", "malicious"),
-                "EICAR verdict should be suspicious or malicious",
+                "Verdict should be suspicious or malicious",
             )
         finally:
             watcher.stop()
@@ -276,9 +276,9 @@ class TestTier2BoundaryAndCornerCases(unittest.TestCase):
         try:
             # Create transient files with malicious payload
             transient_files = [
-                create_test_file(self.watch_path, "installer.exe.crdownload", EICAR.encode("ascii")),
+                create_test_file(self.watch_path, "installer.vbs.crdownload", SUSPICIOUS_SCRIPT),
                 create_test_file(self.watch_path, "update.part", MZ_STUB),
-                create_test_file(self.watch_path, "cache.tmp", EICAR.encode("ascii")),
+                create_test_file(self.watch_path, "cache.tmp", SUSPICIOUS_SCRIPT),
                 create_test_file(self.watch_path, "file.download", MZ_STUB),
                 create_test_file(self.watch_path, "~$document.docx", b"Office temp lock file"),
             ]
@@ -288,14 +288,14 @@ class TestTier2BoundaryAndCornerCases(unittest.TestCase):
             self.assertFalse(triggered, "Transient download files must be ignored")
             self.assertEqual(len(self.threat_events), 0)
 
-            # Rename .crdownload to finalized .exe
-            final_exe = self.watch_path / "installer.exe"
-            transient_files[0].rename(final_exe)
+            # Rename .crdownload to finalized .vbs
+            final_vbs = self.watch_path / "installer.vbs"
+            transient_files[0].rename(final_vbs)
 
             # Now detection should fire for the finalized file
             triggered = self.threat_event_signal.wait(timeout=3.0)
             self.assertTrue(triggered, "Renaming transient file to finalized file must trigger detection")
-            self.assertEqual(self.threat_events[0][0].name, "installer.exe")
+            self.assertEqual(self.threat_events[0][0].name, "installer.vbs")
         finally:
             watcher.stop()
 
@@ -472,25 +472,25 @@ class TestTier3CrossFeatureAndConcurrency(unittest.TestCase):
         watcher.start()
         try:
             # Create files in rapid sequence
-            create_test_file(self.watch_path, "rapid_threat1.com", EICAR.encode("ascii"))
+            create_test_file(self.watch_path, "rapid_threat1.vbs", SUSPICIOUS_SCRIPT)
             create_test_file(self.watch_path, "rapid_clean1.txt", b"Benign text document 1")
-            create_test_file(self.watch_path, "rapid_transient1.crdownload", EICAR.encode("ascii"))
+            create_test_file(self.watch_path, "rapid_transient1.crdownload", SUSPICIOUS_SCRIPT)
             create_test_file(self.watch_path, "rapid_threat2.exe", MZ_STUB + os.urandom(256))
             create_test_file(self.watch_path, "rapid_clean2.log", b"System log info clean")
             create_test_file(self.watch_path, "rapid_transient2.tmp", MZ_STUB)
-            create_test_file(self.watch_path, "rapid_threat3.vbs", SUSPICIOUS_SCRIPT)
+            create_test_file(self.watch_path, "rapid_threat3.ps1", SUSPICIOUS_SCRIPT)
             create_test_file(self.watch_path, "rapid_clean3.json", b'{"status": "ok"}')
             create_test_file(self.watch_path, "rapid_transient3.part", MZ_STUB)
-            create_test_file(self.watch_path, "rapid_transient4.download", EICAR.encode("ascii"))
+            create_test_file(self.watch_path, "rapid_transient4.download", SUSPICIOUS_SCRIPT)
 
             # Wait for all 3 threats to be detected
             triggered = self.all_threats_signal.wait(timeout=5.0)
             self.assertTrue(triggered, f"Expected {self.expected_threat_count} threats, got {len(self.threat_events)}")
 
             detected_names = {name for name, _ in self.threat_events}
-            self.assertIn("rapid_threat1.com", detected_names)
+            self.assertIn("rapid_threat1.vbs", detected_names)
             self.assertIn("rapid_threat2.exe", detected_names)
-            self.assertIn("rapid_threat3.vbs", detected_names)
+            self.assertIn("rapid_threat3.ps1", detected_names)
             self.assertEqual(len(detected_names), 3, "Only the 3 malicious files should be flagged")
         finally:
             watcher.stop()
@@ -517,9 +517,9 @@ class TestTier3CrossFeatureAndConcurrency(unittest.TestCase):
             self.assertEqual(watcher.watch_dir, dir_a)
             self.assertEqual(watcher.ram_limit_mb, 64)
 
-            create_test_file(dir_a, "threat_in_a.com", EICAR.encode("ascii"))
+            create_test_file(dir_a, "threat_in_a.vbs", SUSPICIOUS_SCRIPT)
             time.sleep(0.3)
-            self.assertIn("threat_in_a.com", detected_in_a)
+            self.assertIn("threat_in_a.vbs", detected_in_a)
 
             # Stop watcher
             watcher.stop()
@@ -539,13 +539,13 @@ class TestTier3CrossFeatureAndConcurrency(unittest.TestCase):
             self.assertEqual(watcher_b.stream_chunk_kb, 128)
 
             # Drop file in A (should NOT be detected anymore)
-            create_test_file(dir_a, "unwatched_threat.com", EICAR.encode("ascii"))
+            create_test_file(dir_a, "unwatched_threat.vbs", SUSPICIOUS_SCRIPT)
             # Drop file in B (should be detected)
-            create_test_file(dir_b, "threat_in_b.com", EICAR.encode("ascii"))
+            create_test_file(dir_b, "threat_in_b.vbs", SUSPICIOUS_SCRIPT)
 
             time.sleep(0.3)
-            self.assertNotIn("unwatched_threat.com", detected_in_a)
-            self.assertIn("threat_in_b.com", detected_in_b)
+            self.assertNotIn("unwatched_threat.vbs", detected_in_a)
+            self.assertIn("threat_in_b.vbs", detected_in_b)
 
             watcher_b.stop()
             self.assertFalse(watcher_b.is_running())
@@ -613,7 +613,7 @@ class TestTier4RealWorldScenarios(unittest.TestCase):
 
             # Stage 3: Browser writes full payload
             with open(part_path, "ab") as f:
-                f.write(MZ_STUB[100:] + EICAR.encode("ascii"))
+                f.write(MZ_STUB[100:] + SUSPICIOUS_SCRIPT)
                 f.flush()
             time.sleep(0.1)
             self.assertEqual(len(self.threat_events), 0, "Stage 3 (completed crdownload) must not trigger alert")
@@ -678,7 +678,11 @@ class TestTier4RealWorldScenarios(unittest.TestCase):
 
     def test_16_toast_notification_contract_and_severity_styling(self):
         """Verify SentinelToast contract, color coding (Orange vs Red/Violet), and open-scanner callback."""
-        from gui.toast_notification import SentinelToast
+        from gui.toast_notification import SentinelToast, ALERT_THEMES
+
+        # Verify themes dictionary completeness
+        self.assertIn("suspicious", ALERT_THEMES)
+        self.assertIn("malicious", ALERT_THEMES)
 
         # Mock master widget
         mock_master = MagicMock()
@@ -700,7 +704,7 @@ class TestTier4RealWorldScenarios(unittest.TestCase):
             )
             # Verify severity color attribute or method
             self.assertEqual(toast_suspicious.severity, "suspicious")
-            self.assertIn(toast_suspicious.accent_color.lower(), ["#f97316", "#ea580c", "#ff9800", "#d97706", "orange", "#fb923c"])
+            self.assertIn(toast_suspicious.accent_color.lower(), ["#f97316", "#ea580c", "#ff9800", "#f59e0b", "#d97706", "orange", "#fb923c"])
 
         # 2. Critical danger test (Score 80 -> Red/Violet)
         danger_result = {

@@ -185,7 +185,7 @@ class TestMilestone4Integration(unittest.TestCase):
         mock_toast = MagicMock()
         app._active_toast = mock_toast
 
-        app._on_close()
+        app._quit_app()
 
         mock_toast.dismiss.assert_called_once()
         mock_watcher_instance.stop.assert_called_once_with(timeout=2.0)
