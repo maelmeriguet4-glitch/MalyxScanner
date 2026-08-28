@@ -5,7 +5,8 @@ import customtkinter as ctk
 
 from core.ai_analyst import query_ai_analyst
 from core.remediation import quarantine_file, delete_file_permanently
-from core.sandbox import launch_in_windows_sandbox
+from core.sandbox import launch_in_windows_sandbox, is_windows_sandbox_available
+from .sandbox_dialog import SandboxGuideDialog
 
 
 SEVERITY_COLORS = {
@@ -379,6 +380,11 @@ class ResultView(ctk.CTkFrame):
         self.btn_delete.pack(side="left", padx=4)
 
     def _handle_sandbox(self, file_path):
+        available, _ = is_windows_sandbox_available()
+        if not available:
+            SandboxGuideDialog(master=self.winfo_toplevel(), theme=self.theme)
+            return
+
         success, msg = launch_in_windows_sandbox(file_path)
         if success:
             messagebox.showinfo("Windows Sandbox", msg)
