@@ -12,6 +12,7 @@ from core.history import record_scan, get_history
 from .result_view import ResultView
 from .settings_dialog import SettingsDialog
 from .history_panel import HistoryPanel
+from .quarantine_panel import QuarantinePanel
 from .theme_manager import get_theme
 from .toast_notification import SentinelToast
 
@@ -41,6 +42,7 @@ class MalyxApp:
         self._tray_thread = None
         self._minimized_to_tray = False
         self.history_panel = None
+        self.quarantine_panel = None
 
         self.theme = get_theme(config.get("theme", "cyber_dark"))
         ctk.set_appearance_mode(self.theme.get("appearance_mode", "Dark"))
@@ -131,7 +133,7 @@ class MalyxApp:
         self.hdr_history_btn = ctk.CTkButton(
             toolbar,
             text="📋 Historique",
-            width=120,
+            width=110,
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#21262d",
@@ -140,6 +142,19 @@ class MalyxApp:
             command=self._toggle_history,
         )
         self.hdr_history_btn.pack(side="left", padx=4)
+
+        self.hdr_quarantine_btn = ctk.CTkButton(
+            toolbar,
+            text="🛡️ Quarantaine",
+            width=120,
+            height=36,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#21262d",
+            hover_color="#30363d",
+            text_color=theme["text"],
+            command=self._toggle_quarantine,
+        )
+        self.hdr_quarantine_btn.pack(side="left", padx=4)
 
         settings_btn = ctk.CTkButton(
             toolbar,
@@ -695,6 +710,11 @@ class MalyxApp:
 
     def _toggle_history(self):
         """Toggles between the main scan view and the history panel."""
+        if self.quarantine_panel is not None and self.quarantine_panel.winfo_exists():
+            self.quarantine_panel.destroy()
+            self.quarantine_panel = None
+            self.hdr_quarantine_btn.configure(fg_color="#21262d")
+
         if self.history_panel is not None and self.history_panel.winfo_exists():
             # Switch back to main view
             self.history_panel.destroy()
@@ -719,6 +739,42 @@ class MalyxApp:
             on_rescan=self._rescan_from_history,
         )
         self.history_panel.pack(fill="both", expand=True)
+
+    def _toggle_quarantine(self):
+        """Toggles between the main scan view and the quarantine management panel."""
+        if self.history_panel is not None and self.history_panel.winfo_exists():
+            self.history_panel.destroy()
+            self.history_panel = None
+            self.hdr_history_btn.configure(fg_color="#21262d")
+
+        if self.quarantine_panel is not None and self.quarantine_panel.winfo_exists():
+            # Switch back to main view
+            self.quarantine_panel.destroy()
+            self.quarantine_panel = None
+            self.hdr_quarantine_btn.configure(fg_color="#21262d")
+            if self.result:
+                self._show_result(self.result)
+            else:
+                self._show_waiting()
+            return
+
+        # Show quarantine panel
+        for child in self.content.winfo_children():
+            child.destroy()
+
+        self.hdr_quarantine_btn.configure(fg_color=self.theme["accent"])
+
+        self.quarantine_panel = QuarantinePanel(
+            master=self.content,
+            theme=self.theme,
+            translator=self.t,
+            on_restored=self._on_quarantine_restored,
+        )
+        self.quarantine_panel.pack(fill="both", expand=True)
+
+    def _on_quarantine_restored(self, restored_path: str):
+        """Callback when a file is restored from quarantine."""
+        logger.info("File restored from quarantine: %s", restored_path)
 
     def _rescan_from_history(self, file_path: str):
         """Re-scans a file from the history panel."""

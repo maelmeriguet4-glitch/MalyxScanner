@@ -5,6 +5,7 @@ import customtkinter as ctk
 
 from core.ai_analyst import query_ai_analyst
 from core.remediation import quarantine_file, delete_file_permanently
+from core.sandbox import launch_in_windows_sandbox
 
 
 SEVERITY_COLORS = {
@@ -344,6 +345,17 @@ class ResultView(ctk.CTkFrame):
         self.rem_btn_box = ctk.CTkFrame(inner, fg_color="transparent")
         self.rem_btn_box.pack(side="right")
 
+        self.btn_sandbox = ctk.CTkButton(
+            self.rem_btn_box,
+            text="⚡ Windows Sandbox",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#1f6feb",
+            hover_color="#388bfd",
+            height=34,
+            command=lambda: self._handle_sandbox(file_path),
+        )
+        self.btn_sandbox.pack(side="left", padx=4)
+
         self.btn_quarantine = ctk.CTkButton(
             self.rem_btn_box,
             text=t.t("remediation.quarantine_btn"),
@@ -365,6 +377,13 @@ class ResultView(ctk.CTkFrame):
             command=lambda: self._handle_delete(file_path),
         )
         self.btn_delete.pack(side="left", padx=4)
+
+    def _handle_sandbox(self, file_path):
+        success, msg = launch_in_windows_sandbox(file_path)
+        if success:
+            messagebox.showinfo("Windows Sandbox", msg)
+        else:
+            messagebox.showwarning("Windows Sandbox", msg)
 
     def _handle_quarantine(self, file_path):
         t = self.t
@@ -774,6 +793,16 @@ class ResultView(ctk.CTkFrame):
 
             r_inner = ctk.CTkFrame(rem_c, fg_color="transparent")
             r_inner.pack(fill="x", padx=12, pady=10)
+
+            ctk.CTkButton(
+                r_inner,
+                text="⚡ Tester dans Windows Sandbox",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color="#1f6feb",
+                hover_color="#388bfd",
+                height=36,
+                command=lambda: self._handle_sandbox(file_path),
+            ).pack(side="left", padx=(0, 6))
 
             ctk.CTkButton(
                 r_inner,
