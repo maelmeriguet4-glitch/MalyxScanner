@@ -45,11 +45,15 @@ CATEGORIES = {
         ".dmg", ".deb", ".rpm", ".apk", ".aab", ".gadget", ".msc", ".cpl",
         ".pif", ".hta", ".ocx", ".drv", ".efi"
     },
+    "script": {
+        ".ps1", ".psm1", ".bat", ".cmd", ".vbs", ".vbe", ".wsf", ".wsh",
+        ".js", ".jse", ".hta", ".sh", ".bash", ".zsh"
+    },
     "code": {
-        ".py", ".pyw", ".js", ".mjs", ".cjs", ".ts", ".jsx", ".tsx",
+        ".py", ".pyw", ".mjs", ".cjs", ".ts", ".jsx", ".tsx",
         ".java", ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".cs",
         ".go", ".rs", ".php", ".rb", ".swift", ".kt", ".kts", ".lua",
-        ".sh", ".bash", ".zsh", ".html", ".htm", ".css", ".scss", ".sass",
+        ".html", ".htm", ".css", ".scss", ".sass",
         ".less", ".sql", ".asm", ".s", ".v", ".sv", ".pl", ".dart", ".r"
     },
     "database": {

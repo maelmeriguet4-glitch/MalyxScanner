@@ -49,7 +49,7 @@ def classify_threat(identity, entropy, pe, yara, virustotal, strings, risk):
     elif "trojan" in yara_texts or "rat" in yara_texts or "backdoor" in yara_texts or "trojan" in vt_flagged_text or has_injection or (has_antidebug and has_network) or score >= 50:
         threat_type = "trojan"
     # Dangerous Script check
-    elif family == "script" and (score >= 20 or strings_cmds):
+    elif family in ("script", "code") and (score >= 20 or strings_cmds):
         threat_type = "dangerous_script"
     # Suspicious binary / untrusted check
     elif score >= 20:

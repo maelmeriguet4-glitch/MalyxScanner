@@ -205,6 +205,10 @@ class AnalyzerTests(unittest.TestCase):
             b'powershell.exe -enc AAAA\nhttp://evil-c2.com/payload.exe\n192.168.1.50\n'
         )
         result = self.analyze(sample)
+        self.assertIn("http://evil-c2.com/payload.exe", result["strings"]["urls"])
+        self.assertIn("192.168.1.50", result["strings"]["ips"])
+        self.assertTrue(any("PowerShell" in cmd for cmd in result["strings"]["commands"]))
+
     def test_threat_classification_clean(self):
         result = self.analyze(self.txt_path)
         self.assertIn("threat", result)
@@ -218,6 +222,9 @@ class AnalyzerTests(unittest.TestCase):
             "ransom_note.exe",
             MZ_STUB + b"\nvssadmin delete shadows /all /quiet\nYour files have been encrypted with RSA-4096! Send bitcoin to wallet\n"
         )
+        result = self.analyze(ransom_sample)
+        self.assertIn(result["threat"]["type"], ("ransomware", "trojan", "suspicious_file", "untrusted_pe"))
+        self.assertGreaterEqual(result["risk"]["score"], 25)
     def test_performance_config_options(self):
         result = self.analyze(
             self.txt_path,
